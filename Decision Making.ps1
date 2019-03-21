@@ -9,7 +9,7 @@
 # Smart Scale is due to be deprecated in May
 
 ################################## Manual Variable Configuration ##################################
-$performanceScriptLocation = "C:\Users\leee.jeffries\OneDrive - Prospects Services\Scripts\Citrix Smartscale Powershell\Performance Measurement.ps1" #Performance gathering script location
+$performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1" #Performance gathering script location
 [String]$citrixController = "UKSCTXXAC01" #Citrix controller name or IP
 $machinePrefix = "UKSCTXVDA" #Machine name prefix to include
 $businessStartTime =  $([DateTime]"06:00") #Start time of the business
@@ -17,7 +17,7 @@ $businessCloseTime = $([DateTime]"18:00") #End time of the business
 $weekendMachines = "2" #How many machines should be powered on during the weekends
 $weekdayMachines = "20" #How many machines should be powered on during the day (scaling will take into account further machines)
 $machineScaing = "Schedule" #Options are (Schedule, CPU, Memory, Index or Sessions)
-$logLocation = "C:\Temp\Scaling_Log.log" #Log file location
+$logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Scaling_Log.log" #Log file location
 $smtpServer = "10.110.4.124" #SMTP server address
 $smtpToAddress = "leee.jeffries@prospects.co.uk" #Email address to send to
 $smtpFromAddress = "copier@prospects.co.uk" # Email address mails will come from
@@ -37,7 +37,7 @@ $timesObj = [PSCustomObject]@{
 }
 
 #Load Citrix Snap-ins
-asnp *Citrix
+Add-PSSnapin Citrix*
 
 #Function to create a log file
 Function WriteLog() {
