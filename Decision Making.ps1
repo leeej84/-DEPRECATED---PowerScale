@@ -11,7 +11,7 @@
 ################################## Manual Variable Configuration ##################################
 $performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1" #Performance gathering script location
 $citrixController = "UKSCTXXAC01"                                                           #Citrix controller name or IP
-$machinePrefix = "UKSCTXPPT"                                                                #Machine name prefix to include
+$machinePrefix = "UKSCTXVDA"                                                                #Machine name prefix to include
 $businessStartTime =  $([DateTime]"06:00")                                                  #Start time of the business
 $businessCloseTime = $([DateTime]"18:00")                                                   #End time of the business
 $outOfHoursMachines = "2"                                                                      #How many machines should be powered on during the weekends
@@ -266,7 +266,7 @@ Function brokerUserSessions() {
  
         [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]   
         [ValidateNotNullOrEmpty()]      
-        [string]$machinePrefix  
+        [string]$machinePrefix          
     )
     
     Return Get-BrokerSession -AdminAddress $citrixController -MaxRecordCount 10000 | Where {((($_.MachineName).Replace("\","\\")) -match $machinePrefix)}
