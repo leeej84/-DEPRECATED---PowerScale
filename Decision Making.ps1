@@ -10,18 +10,19 @@
 
 ################################## Manual Variable Configuration ##################################
 $performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1" #Performance gathering script location
-[String]$citrixController = "UKSCTXXAC01"                                   #Citrix controller name or IP
-$machinePrefix = "UKSCTXVDA"                                                #Machine name prefix to include
-$businessStartTime =  $([DateTime]"06:00")                                  #Start time of the business
-$businessCloseTime = $([DateTime]"18:00")                                   #End time of the business
-$weekendMachines = "2"                                          #How many machines should be powered on during the weekends
-$weekdayMachines = "20"                                         #How many machines should be powered on during the day (scaling will take into account further machines)
-$machineScaing = "Schedule"                                     #Options are (Schedule, CPU, Memory, Index or Sessions)
-$logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Scaling_Log.log" #Log file location
-$smtpServer = "10.110.4.124" #SMTP server address
-$smtpToAddress = "leee.jeffries@prospects.co.uk" #Email address to send to
-$smtpFromAddress = "copier@prospects.co.uk" # Email address mails will come from
-$smtpSubject = "PowerScale" #Mail Subject (will be appended with Error if error
+$citrixController = "UKSCTXXAC01"                                                           #Citrix controller name or IP
+$machinePrefix = "UKSCTXPPT"                                                                #Machine name prefix to include
+$businessStartTime =  $([DateTime]"06:00")                                                  #Start time of the business
+$businessCloseTime = $([DateTime]"18:00")                                                   #End time of the business
+$outOfHoursMachines = "2"                                                                      #How many machines should be powered on during the weekends
+$inHoursMachines = "20"                                                                     #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
+$machineScaing = "Schedule"                                                                 #Options are (Schedule, CPU, Memory, Index or Sessions)
+$logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\InsideOfHours_Log.log"         #Log file location
+$smtpServer = "10.110.4.124"                                                                #SMTP server address
+$smtpToAddress = "leee.jeffries@prospects.co.uk"                                            #Email address to send to
+$smtpFromAddress = "copier@prospects.co.uk"                                                 #Email address mails will come from
+$smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
+$testingOnly = $true                                                                        #Debugging value, will only write out to the log
 ################################## Manual Variable Configuration ##################################
 ################################### Test Variable Configuration ###################################
 
@@ -166,9 +167,11 @@ Function SendEmail() {
             "Attachment file $attachment exists"
             # Send email message with attachment
             Send-MailMessage -SmtpServer $smtpServer -From $fromAddress -To $toAddress -Subject $("$subject - $Level") -Body "$FormattedDate $LevelText $Message" -Attachments $attachment
+            WriteLog -Path $logLocation -Message "Sending out an email with an attachment." -Level Info 
         } else {
             # Send email message without attachment
             Send-MailMessage -SmtpServer $smtpServer -From $fromAddress -To $toAddress -Subject $("$subject - $Level") -Body "$FormattedDate $LevelText $Message"
+            WriteLog -Path $logLocation -Message "Sending out an email without an attachment, attachment did not exist." -Level warning 
         }        
     } 
     End 
@@ -181,18 +184,56 @@ Function IsWeekDay() {
     #Weekdays
     $weekdays = "Monday","Tuesday","Wednesday","Thursday","Friday"
     #See if the current day of the week sits inside of any other weekdays, returns true or false
-    $null -ne ($weekdays | ? { $(Get-Date -Format "dddd") -match $_ })  # returns $true 
+    $null -ne ($weekdays | ? { $(Get-Date -Format "dddd") -match $_ })  # returns $true
 }
 
-#Function to check if inside of business hours or outside to activate scaling
+#Function to check if inside of business hours or outside to OutOfHours InsideOfHours
 Function TimeCheck($timeObj) {
     If (($timesObj.timeNow -lt $timesObj.startTime) -or ($timesObj.timeNow -gt $timesObj.endTime)) {
-        Return "Activate" #Activate as we are outside of working hours
+        Return "OutOfHours" #OutOfHours as we are outside of working hours
     } ElseIf (($timesObj.timeNow -ge $timesObj.startTime) -and ($timesObj.timeNow -le $timesObj.endTime)) {
-        Return "Halt" #Dont activate as we are inside working hours
+        Return "InsideOfHours" #Dont OutOfHours as we are inside working hours
     } Else {
         Return "Error" #Dont do anything if the time calculation is not conclusive
     }
+}
+
+#Function to check the level of machines based on current time and day
+Function levelCheck() {
+    [CmdletBinding()] 
+    Param 
+    ( 
+        [Parameter(Mandatory=$true, HelpMessage = "Number of machines currently live.")]    
+        [ValidateNotNullOrEmpty()] 
+        [int]$currentMachines, 
+ 
+        [Parameter(Mandatory=$true, HelpMessage = "Number of machines to scale up or down to.")]   
+        [ValidateNotNullOrEmpty()]      
+        [int]$targetMachines
+    )
+        #Check the supplied machines levels against what is required
+        #Return an object with the action required (Startup, Shutdown, Nothing and the amount of machines necessary to do it to)
+        If ($currentMachines -gt $targetMachines) {
+            $InsideOfHours = [PSCustomObject]@{        
+                Task = "Shutdown"
+                Number = $($currentMachines - $targetMachines)
+            }
+            WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($InsideOfHours.Task) $($InsideOfHours.Number) machines" -Level Info -Verbose
+        } elseif ($currentMachine -lt $targetMachines) {
+            $InsideOfHours = [PSCustomObject]@{        
+                Task = "Startup"
+                Number = $($targetMachines - $currentMachines)
+            }
+            WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($InsideOfHours.Task) $($InsideOfHours.Number) machines" -Level Info -Verbose
+        } elseif ($currentMachines -eq $targetMachines) {
+            $InsideOfHours = [PSCustomObject]@{        
+                Task = "Nothing"
+                Number = 0
+            }
+            WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to do nothing, everything is good" -Level Info -Verbose
+        }
+        Return $InsideOfHours
+
 }
 
 #Function to get a list of all machines and current states from Broker
@@ -206,7 +247,7 @@ Function brokerMachineStates() {
         [string]$citrixController, 
  
         [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]   
-        [ValidateNotNullOrEmpty()]      
+        [ValidateNotNullOrEmpty()]     
         [string]$machinePrefix      
     )
     
@@ -254,9 +295,9 @@ Function brokerAction() {
     )
     #Check if a delay has been sent or not and execute the relevant command based on this
     If ($delay -gt 0) {
-        New-BrokerDelayedHostingPowerAction -AdminAddress $citrixcontroller -MachineName $machineName -Action $machineAction -Delay $(New-TimeSpan -Minutes $delay)
+        If (!$testingOnly) {New-BrokerDelayedHostingPowerAction -AdminAddress $citrixcontroller -MachineName $machineName -Action $machineAction -Delay $(New-TimeSpan -Minutes $delay) }
     } else {
-        New-BrokerHostingPowerAction -AdminAddress $citrixcontroller -MachineName $machineName -Action $machineAction
+        If (!$testingOnly) {New-BrokerHostingPowerAction -AdminAddress $citrixcontroller -MachineName $machineName -Action $machineAction}
     }
 }
 
@@ -279,13 +320,13 @@ Function maintenance() {
     #This set a machine or machines in maintenance mode
     If ($maintenanceMode -eq "On") {
         try {
-            Set-BrokerMachineMaintenanceMode -AdminAddress $citrixController -InputObject $machine -MaintenanceMode $true
+            If (!$testingOnly) {Set-BrokerMachineMaintenanceMode -AdminAddress $citrixController -InputObject $machine -MaintenanceMode $true}
         } catch {
             WriteLog -Path $logLocation -Message "there was an error placing $($machine.DNSName) into maintenance mode" -Level Error
         }
     } elseif ($maintenanceMode -eq "Off") {
         try {
-            Set-BrokerMachineMaintenanceMode -AdminAddress $citrixController -InputObject $machine -MaintenanceMode $false
+            If (!$testingOnly) {Set-BrokerMachineMaintenanceMode -AdminAddress $citrixController -InputObject $machine -MaintenanceMode $false}
         } catch {
             WriteLog -Path $logLocation -Message "there was an error taking $($machine.DNSName) out of maintenance mode" -Level Error
         }
@@ -296,33 +337,33 @@ $machineVar = brokerMachineStates -citrixController $citrixController -machinePr
 $userVar = brokerUserSessions -citrixController $citrixController -machinePrefix $machinePrefix
 $machineActiveSessions = $userVar | Where {$_.SessionState -eq "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
 $machineNonActiveSessions = $userVar | Where {$_.SessionState -ne "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
-maintenance -citrixController $citrixController -machine $(Get-BrokerMachine -DNSName "UKSCTXPPT01.prospects.local") -maintenanceMode Off
+If (!$testingOnly) {maintenance -citrixController $citrixController -machine $(Get-BrokerMachine -DNSName "UKSCTXPPT01.prospects.local") -maintenanceMode On}
 #########################YOU ARE HERE COMPARING VARIABLES###################################
 
 #Main Logic 
 #Log for script start
-WriteLog -Path $logLocation -Message "Scaling script starting" -Level Info
+WriteLog -Path $logLocation -Message "PowerScale script starting - Test mode value is $testingOnly" -Level Info
 
 #Is it a weekday?
 If ($(IsWeekDay)) {
-    If ($(TimeCheck($timeObj)) -eq "Activate") {
-        #Stuff to do when activated                
-        WriteLog -Path $logLocation -Message "Scaling within window of time - activating" -Level Info
-    } ElseIf ($(TimeCheck($timeObj)) -eq "Halt") {
-        #Stuff to do when halted
-        "DO NOT Acvtivate"
-        WriteLog -Path $logLocation -Message "Scaling inside business hours - not activating" -Level Info
+    If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
+        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $(brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix).Count
+        $action
+
+    } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
+        #This is where the performance scaling will fit in.
+        $action = levelCheck -targetMachines $inHoursMachines -currentMachines $(brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix).Count
+        $action
     } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
-        #Stuff to do when Error
-        "ERROR"
-        WriteLog -Path $logLocation -Message "There has been an error, please review the log" -Level Error
+        
     }
 } Else { #Its the weekend
-    
+    $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $(brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix).Count
+    $action
 }
 
 #Log for script finish
-WriteLog -Path $logLocation -Message "Scaling script finishing" -Level Info -NoClobber
+WriteLog -Path $logLocation -Message "PowerScale script finishing" -Level Info -NoClobber
 #SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "This is a test message" -attachment $logLocation -Level Error
 
 
