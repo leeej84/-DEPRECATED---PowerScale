@@ -11,11 +11,11 @@
 ################################## Manual Variable Configuration ##################################
 $performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1" #Performance gathering script location
 $citrixController = "UKSCTXXAC01"                                                           #Citrix controller name or IP
-$machinePrefix = "UKSCTXVDA"                                                                #Machine name prefix to include
+$machinePrefix = "UKSCTXPPT"                                                                #Machine name prefix to include
 $businessStartTime =  $([DateTime]"06:00")                                                  #Start time of the business
 $businessCloseTime = $([DateTime]"18:00")                                                   #End time of the business
-$outOfHoursMachines = "2"                                                                      #How many machines should be powered on during the weekends
-$inHoursMachines = "20"                                                                     #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
+$outOfHoursMachines = "1"                                                                      #How many machines should be powered on during the weekends
+$inHoursMachines = "5"                                                                     #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
 $machineScaling = "Schedule"                                                                 #Options are (Schedule, CPU, Memory, Index or Sessions)
 $logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\InsideOfHours_Log.log"         #Log file location
 $smtpServer = "10.110.4.124"                                                                #SMTP server address
