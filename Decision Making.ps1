@@ -9,6 +9,7 @@
 # Smart Scale is due to be deprecated in May
 
 ################################## Manual Variable Configuration ##################################
+<<<<<<< HEAD
 $performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1"   #Performance gathering script location
 $performanceInterval = "2"                                                                                      #Performance monitoring interval between samples
 $performanceSamples = "5"                                                                                       #Performance monitoring samples (samples * intervals = time taken to measure each machine)
@@ -32,6 +33,22 @@ $messageIntervalTwo = "2"                                                       
 $shutdownDelay = "5"                                                                                            #Shutdown time in minutes
 
 $testingOnly = $true                                                                                            #Debugging value, will only write out to the log
+=======
+$performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1" #Performance gathering script location
+$citrixController = "UKSCTXXAC01"                                                           #Citrix controller name or IP
+$machinePrefix = "UKSCTXVDA"                                                                #Machine name prefix to include
+$businessStartTime =  $([DateTime]"06:00")                                                  #Start time of the business
+$businessCloseTime = $([DateTime]"18:00")                                                   #End time of the business
+$outOfHoursMachines = "2"                                                                      #How many machines should be powered on during the weekends
+$inHoursMachines = "20"                                                                     #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
+$machineScaling = "Schedule"                                                                 #Options are (Schedule, CPU, Memory, Index or Sessions)
+$logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\InsideOfHours_Log.log"         #Log file location
+$smtpServer = "10.110.4.124"                                                                #SMTP server address
+$smtpToAddress = "leee.jeffries@prospects.co.uk"                                            #Email address to send to
+$smtpFromAddress = "copier@prospects.co.uk"                                                 #Email address mails will come from
+$smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
+$testingOnly = $true                                                                        #Debugging value, will only write out to the log
+>>>>>>> 2ea02697d913738e791298238ee77d481924b9be
 ################################## Manual Variable Configuration ##################################
 ################################### Test Variable Configuration ###################################
 
@@ -430,6 +447,7 @@ Function sendMessage () {
     $sessions | Stop-BrokerSession
 }
 #########################YOU ARE HERE COMPARING VARIABLES###################################
+<<<<<<< HEAD
 $allMachines = ""
 $allUserSessions = ""
 $allMachines = brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix
@@ -441,6 +459,13 @@ $machinesPoweredOff = $allMachines | Select * | Where {($_.PowerState -eq "Off")
 $machineActiveSessions = $allUserSessions | Where {$_.SessionState -eq "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
 $machineNonActiveSessions = $allUserSessions | Where {$_.SessionState -ne "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
 If (!$testingOnly) {maintenance -citrixController $citrixController -machine $(Get-BrokerMachine -DNSName "UKSCTXPPT01.prospects.local") -maintenanceMode On}
+=======
+$machineVar = brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix
+$userVar = brokerUserSessions -citrixController $citrixController -machinePrefix $machinePrefix
+$machineActiveSessions = $userVar | Where {$_.SessionState -eq "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
+$machineNonActiveSessions = $userVar | Where {$_.SessionState -ne "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
+If (!$testingOnly) {maintenance -citrixController $citrixController -machine $(Get-BrokerMachine -DNSName "UKSCTXPPT01.prospects.local") -maintenanceMode On} #SC 28/03/2019:Remove -DNSname value and replace with a variable?
+>>>>>>> 2ea02697d913738e791298238ee77d481924b9be
 #########################YOU ARE HERE COMPARING VARIABLES###################################
 
 #Main Logic 
