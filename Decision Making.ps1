@@ -16,7 +16,7 @@ $businessStartTime =  $([DateTime]"06:00")                                      
 $businessCloseTime = $([DateTime]"18:00")                                                   #End time of the business
 $outOfHoursMachines = "2"                                                                      #How many machines should be powered on during the weekends
 $inHoursMachines = "20"                                                                     #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
-$machineScaing = "Schedule"                                                                 #Options are (Schedule, CPU, Memory, Index or Sessions)
+$machineScaling = "Schedule"                                                                 #Options are (Schedule, CPU, Memory, Index or Sessions)
 $logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\InsideOfHours_Log.log"         #Log file location
 $smtpServer = "10.110.4.124"                                                                #SMTP server address
 $smtpToAddress = "leee.jeffries@prospects.co.uk"                                            #Email address to send to
@@ -337,7 +337,7 @@ $machineVar = brokerMachineStates -citrixController $citrixController -machinePr
 $userVar = brokerUserSessions -citrixController $citrixController -machinePrefix $machinePrefix
 $machineActiveSessions = $userVar | Where {$_.SessionState -eq "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
 $machineNonActiveSessions = $userVar | Where {$_.SessionState -ne "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
-If (!$testingOnly) {maintenance -citrixController $citrixController -machine $(Get-BrokerMachine -DNSName "UKSCTXPPT01.prospects.local") -maintenanceMode On}
+If (!$testingOnly) {maintenance -citrixController $citrixController -machine $(Get-BrokerMachine -DNSName "UKSCTXPPT01.prospects.local") -maintenanceMode On} #SC 28/03/2019:Remove -DNSname value and replace with a variable?
 #########################YOU ARE HERE COMPARING VARIABLES###################################
 
 #Main Logic 
