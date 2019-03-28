@@ -421,7 +421,6 @@ Function sendMessage () {
     $sessions | Stop-BrokerSession
 }
 #########################YOU ARE HERE COMPARING VARIABLES###################################
-<<<<<<< HEAD
 $allMachines = ""
 $allUserSessions = ""
 $allMachines = brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix
@@ -433,13 +432,6 @@ $machinesPoweredOff = $allMachines | Select * | Where {($_.PowerState -eq "Off")
 $machineActiveSessions = $allUserSessions | Where {$_.SessionState -eq "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
 $machineNonActiveSessions = $allUserSessions | Where {$_.SessionState -ne "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
 If (!$testingOnly) {maintenance -citrixController $citrixController -machine $(Get-BrokerMachine -DNSName "UKSCTXPPT01.prospects.local") -maintenanceMode On}
-=======
-$machineVar = brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix
-$userVar = brokerUserSessions -citrixController $citrixController -machinePrefix $machinePrefix
-$machineActiveSessions = $userVar | Where {$_.SessionState -eq "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
-$machineNonActiveSessions = $userVar | Where {$_.SessionState -ne "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
-If (!$testingOnly) {maintenance -citrixController $citrixController -machine $(Get-BrokerMachine -DNSName "UKSCTXPPT01.prospects.local") -maintenanceMode On} #SC 28/03/2019:Remove -DNSname value and replace with a variable?
->>>>>>> 2ea02697d913738e791298238ee77d481924b9be
 #########################YOU ARE HERE COMPARING VARIABLES###################################
 
 #Main Logic 
