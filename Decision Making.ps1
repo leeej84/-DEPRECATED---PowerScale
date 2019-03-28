@@ -9,20 +9,29 @@
 # Smart Scale is due to be deprecated in May
 
 ################################## Manual Variable Configuration ##################################
-$performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1" #Performance gathering script location
-$citrixController = "UKSCTXXAC01"                                                           #Citrix controller name or IP
-$machinePrefix = "UKSCTXVDA"                                                                #Machine name prefix to include
-$businessStartTime =  $([DateTime]"06:00")                                                  #Start time of the business
-$businessCloseTime = $([DateTime]"18:00")                                                   #End time of the business
-$outOfHoursMachines = "2"                                                                      #How many machines should be powered on during the weekends
-$inHoursMachines = "20"                                                                     #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
-$machineScaing = "Schedule"                                                                 #Options are (Schedule, CPU, Memory, Index or Sessions)
-$logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\InsideOfHours_Log.log"         #Log file location
-$smtpServer = "10.110.4.124"                                                                #SMTP server address
-$smtpToAddress = "leee.jeffries@prospects.co.uk"                                            #Email address to send to
-$smtpFromAddress = "copier@prospects.co.uk"                                                 #Email address mails will come from
-$smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
-$testingOnly = $true                                                                        #Debugging value, will only write out to the log
+$performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1"   #Performance gathering script location
+$performanceInterval = "2"                                                                                      #Performance monitoring interval between samples
+$performanceSamples = "5"                                                                                       #Performance monitoring samples (samples * intervals = time taken to measure each machine)
+$performanceIndividualLoc = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Individual_Performance.xml"     #Performance gathering script location
+$performanceOverallLoc = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Overall_Performance.xml"           #Performance gathering script location
+
+$citrixController = "UKSCTXXAC01"                                                                               #Citrix controller name or IP
+$machinePrefix = "UKSCTXPPT"                                                                                    #Machine name prefix to include
+$businessStartTime =  $([DateTime]"06:00")                                                                      #Start time of the business
+$businessCloseTime = $([DateTime]"18:00")                                                                       #End time of the business
+$outOfHoursMachines = "2"                                                                                       #How many machines should be powered on during the weekends
+$inHoursMachines = "4"                                                                                          #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
+$machineScaing = "Schedule"                                                                                     #Options are (Schedule, CPU, Memory, Index or Sessions)
+$logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Scaling_Log.log"                             #Log file location
+$smtpServer = "10.110.4.124"                                                                                    #SMTP server address
+$smtpToAddress = "leee.jeffries@prospects.co.uk"                                                                #Email address to send to
+$smtpFromAddress = "copier@prospects.co.uk"                                                                     #Email address mails will come from
+$smtpSubject = "PowerScale"                                                                                     #Mail Subject (will be appended with Error if error
+$messageIntervalOne = "3"                                                                                       #First message interval
+$messageIntervalTwo = "2"                                                                                       #Second message interval
+$shutdownDelay = "5"                                                                                            #Shutdown time in minutes
+
+$testingOnly = $true                                                                                            #Debugging value, will only write out to the log
 ################################## Manual Variable Configuration ##################################
 ################################### Test Variable Configuration ###################################
 
@@ -134,7 +143,7 @@ Function SendEmail() {
 
         [Parameter(Mandatory=$false, HelpMessage = "The subject line of the email")] 
         [string]$subject=""
-    ) 
+    )
  
     Begin 
     { 
@@ -187,7 +196,7 @@ Function IsWeekDay() {
     $null -ne ($weekdays | ? { $(Get-Date -Format "dddd") -match $_ })  # returns $true
 }
 
-#Function to check if inside of business hours or outside to OutOfHours InsideOfHours
+#Function to check if inside of business hours or outside to business hours
 Function TimeCheck($timeObj) {
     If (($timesObj.timeNow -lt $timesObj.startTime) -or ($timesObj.timeNow -gt $timesObj.endTime)) {
         Return "OutOfHours" #OutOfHours as we are outside of working hours
@@ -214,28 +223,49 @@ Function levelCheck() {
         #Check the supplied machines levels against what is required
         #Return an object with the action required (Startup, Shutdown, Nothing and the amount of machines necessary to do it to)
         If ($currentMachines -gt $targetMachines) {
-            $InsideOfHours = [PSCustomObject]@{        
+            $action = [PSCustomObject]@{        
                 Task = "Shutdown"
                 Number = $($currentMachines - $targetMachines)
             }
-            WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($InsideOfHours.Task) $($InsideOfHours.Number) machines" -Level Info -Verbose
-        } elseif ($currentMachine -lt $targetMachines) {
-            $InsideOfHours = [PSCustomObject]@{        
+            WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
+        } elseif ($currentMachines -lt $targetMachines) {
+            $action = [PSCustomObject]@{        
                 Task = "Startup"
                 Number = $($targetMachines - $currentMachines)
             }
-            WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($InsideOfHours.Task) $($InsideOfHours.Number) machines" -Level Info -Verbose
+            WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
         } elseif ($currentMachines -eq $targetMachines) {
-            $InsideOfHours = [PSCustomObject]@{        
-                Task = "Nothing"
+            $action = [PSCustomObject]@{        
+                Task = "Scaling"
                 Number = 0
             }
-            WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to do nothing, everything is good" -Level Info -Verbose
-        }
-        Return $InsideOfHours
-
+            WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to perform Scaling calculations" -Level Info -Verbose
+        }        
+        Return $action
 }
 
+#Function to check active sessions on a machine
+Function checkActive () {
+    [CmdletBinding()] 
+    Param 
+    ( 
+        [Parameter(Mandatory=$true, HelpMessage = "Specifies which Citrix Controller to use, you must have admin rights on the site")]    
+        [ValidateNotNullOrEmpty()] 
+        [string]$citrixController, 
+ 
+        [Parameter(Mandatory=$true, HelpMessage = "Specifies which VDA to check for active sessions on")]   
+        [ValidateNotNullOrEmpty()]     
+        [string]$machine
+    )
+    #Check the VDA to see if it has active sessions
+    If ($(Get-BrokerSession -AdminAddress $citrixController -MachineName $machine | Where-Object {$_.SessionState -eq "Active"}).Count -gt 0) {
+        #Return true if there are active sessions
+        Return $true
+    } Else {
+        #Return false if there are no active sessions
+        Return $false
+    }
+}
 #Function to get a list of all machines and current states from Broker
 Function brokerMachineStates() {
 
@@ -248,7 +278,7 @@ Function brokerMachineStates() {
  
         [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]   
         [ValidateNotNullOrEmpty()]     
-        [string]$machinePrefix      
+        [string]$machinePrefix
     )
     
     Return Get-BrokerMachine -AdminAddress $citrixController | Where {($_.DNSName -match $machinePrefix)}
@@ -264,12 +294,18 @@ Function brokerUserSessions() {
         [ValidateNotNullOrEmpty()] 
         [string]$citrixController, 
  
-        [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]   
-        [ValidateNotNullOrEmpty()]      
-        [string]$machinePrefix          
+        [Parameter(Mandatory=$false, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]        
+        [string]$machinePrefix,
+        
+        [Parameter(Mandatory=$false, HelpMessage = "Specifies machine name to get sessions from")]      
+        [string]$machineName
     )
     
-    Return Get-BrokerSession -AdminAddress $citrixController -MaxRecordCount 10000 | Where {((($_.MachineName).Replace("\","\\")) -match $machinePrefix)}
+    If (!$machineName) {
+        Return Get-BrokerSession -AdminAddress $citrixController -MaxRecordCount 10000 | Where {((($_.MachineName).Replace("\","\\")) -match $machinePrefix)}
+    } else {
+        Return Get-BrokerSession -AdminAddress $citrixController -MaxRecordCount 10000 | Where {$_.MachineName -eq $machineName}
+    }
 }
 
 #Function to Shutdown or TurnOn a machine - TurnOn, TurnOff, Shutdown, Reset, Restart, Suspend, Resume with or without delay
@@ -322,21 +358,88 @@ Function maintenance() {
         try {
             If (!$testingOnly) {Set-BrokerMachineMaintenanceMode -AdminAddress $citrixController -InputObject $machine -MaintenanceMode $true}
         } catch {
-            WriteLog -Path $logLocation -Message "there was an error placing $($machine.DNSName) into maintenance mode" -Level Error
+            WriteLog -Path $logLocation -Message "There was an error placing $($machine.DNSName) into maintenance mode" -Level Error
+            SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There was an error placing $($machine.DNSName) into maintenance mode" -attachment $logLocation -Level Error
         }
     } elseif ($maintenanceMode -eq "Off") {
         try {
             If (!$testingOnly) {Set-BrokerMachineMaintenanceMode -AdminAddress $citrixController -InputObject $machine -MaintenanceMode $false}
         } catch {
-            WriteLog -Path $logLocation -Message "there was an error taking $($machine.DNSName) out of maintenance mode" -Level Error
+            WriteLog -Path $logLocation -Message "There was an error taking $($machine.DNSName) out of maintenance mode" -Level Error
+            SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There was an error taking $($machine.DNSName) out of maintenance mode" -attachment $logLocation -Level Error
         }
     }
 }
+
+#Function to receive a list of sessions in an object and logoff all the disconnected sessions
+Function sessionLogOff() {
+    [CmdletBinding()] 
+    Param 
+    ( 
+        [Parameter(Mandatory=$true, HelpMessage = "Specifies which Citrix Controller to use, you must have admin rights on the site")]    
+        [ValidateNotNullOrEmpty()] 
+        [string]$citrixController,
+
+        [Parameter(Mandatory=$true, HelpMessage = "List of disconnected sessions to be logged off")]    
+        [ValidateNotNullOrEmpty()] 
+        [string]$sessions
+    )
+    #Do some logging off of disconnected sessions
+    WriteLog -Path $logLocation -Message "Logging off all disconnected sessions in one hit" -Level Info
+    get-brokersession -filter {sessionstate -eq "Disconnected"} | stop-brokersession
+
+}
+
+#Function that sends a message to active users that are running on machines and then log them off
+Function sendMessage () {
+    [CmdletBinding()] 
+    Param 
+    ( 
+        [Parameter(Mandatory=$true, HelpMessage = "Specifies which Citrix Controller to use, you must have admin rights on the site")]    
+        [ValidateNotNullOrEmpty()] 
+        [string]$citrixController,
+
+        [Parameter(Mandatory=$true, HelpMessage = "Message interval one")]    
+        [ValidateNotNullOrEmpty()] 
+        [int]$firstMessageInterval,
+
+        [Parameter(Mandatory=$true, HelpMessage = "Message interval two")]    
+        [ValidateNotNullOrEmpty()] 
+        [int]$secondMessageInterval,
+
+        [Parameter(Mandatory=$true, HelpMessage = "List of active sessions to message")]    
+        [ValidateNotNullOrEmpty()] 
+        [object]$sessions
+    )
+    
+    Write-Verbose -Message "Sending message to users to log off - 5 minute warning" -Verbose
+    # Write-host (date -Format hh:mm:ss)   -   "Sending message to users to log off - 5 minute warning" -ForegroundColor Yellow -Verbose
+
+    Send-BrokerSessionMessage -AdminAddress $citrixController -InputObject $sessions -MessageStyle Information -Title "ICT Server Scheduled Shutdown " -Text "Please save your work and log-off. This machine will be shutdown in 5mins"
+    start-sleep -minutes $firstMessageInterval
+
+    #Write-host (date -Format hh:mm:ss)   -   "Sending message to users to log off - 1 minute warning" -ForegroundColor Yellow -Verbose
+    Write-Verbose -Message "Sending message to users to log off - 1 minute warning" -Verbose
+    
+    Send-BrokerSessionMessage -InputObject $sessions -MessageStyle Critical -Title "ICT Server Scheduled Shutdown " -Text "Please save your work and log-off. This machine will be shutdown in 1 min"
+    #sleep for 1 minute until the sessions get logged
+
+    start-sleep -minutes $secondMessageInterval
+
+    WriteLog -Path $logLocation -Message "Logging off all active user sessions in after sending messages at $($firstMessageInterval/60) and $($secondMessageInterval/60)" -Level Info
+    $sessions | Stop-BrokerSession
+}
 #########################YOU ARE HERE COMPARING VARIABLES###################################
-$machineVar = brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix
-$userVar = brokerUserSessions -citrixController $citrixController -machinePrefix $machinePrefix
-$machineActiveSessions = $userVar | Where {$_.SessionState -eq "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
-$machineNonActiveSessions = $userVar | Where {$_.SessionState -ne "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
+$allMachines = ""
+$allUserSessions = ""
+$allMachines = brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix
+$allUserSessions = brokerUserSessions -citrixController $citrixController -machinePrefix $machinePrefix
+$machinesOnAndRegistered = $allMachines | Select * | Where {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")}
+$machinesOnAndMaintenance = $allMachines | Select * | Where {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}
+$machinesOnAndNotMaintenance = $allMachines | Select * | Where {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
+$machinesPoweredOff = $allMachines | Select * | Where {($_.PowerState -eq "Off")}
+$machineActiveSessions = $allUserSessions | Where {$_.SessionState -eq "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
+$machineNonActiveSessions = $allUserSessions | Where {$_.SessionState -ne "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
 If (!$testingOnly) {maintenance -citrixController $citrixController -machine $(Get-BrokerMachine -DNSName "UKSCTXPPT01.prospects.local") -maintenanceMode On}
 #########################YOU ARE HERE COMPARING VARIABLES###################################
 
@@ -346,25 +449,120 @@ WriteLog -Path $logLocation -Message "PowerScale script starting - Test mode val
 
 #Is it a weekday?
 If ($(IsWeekDay)) {
+    #If it is a weekday, then check if we are within working hours or not
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
-        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $(brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix).Count
-        $action
-
-    } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
-        #This is where the performance scaling will fit in.
-        $action = levelCheck -targetMachines $inHoursMachines -currentMachines $(brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix).Count
-        $action
-    } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
+        #Outside working hours, perform analysis on powered on machines vs target machines
+        WriteLog -Path $logLocation -Message "It is currently outside working hours - performing machine analysis" -Level Info
+        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndMaintenance.RegistrationState.Count
         
-    }
-} Else { #Its the weekend
-    $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $(brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix).Count
-    $action
+        If ($action.Task -eq "Scaling") {
+            WriteLog -Path $logLocation -Message "The current running machines matches the target machines, we are outside of working hours so there is nothing to do" -Level Info
+        
+        } ElseIf ($action.Task -eq "Startup") {
+            #Some machines to startup based on numbers returned
+            WriteLog -Path $logLocation -Message "Machines to startup $($action.Number)" -Level Info
+            #Check for machines in maintenance mode that is powered on and is registered
+            #Take x amount of machines out of maintenance mode
+        
+        } ElseIf ($action.Task -eq "Shutdown") {
+            #Some machines to shutdown based on numbers returned
+            $actionsToPerform = $action.Number
+            WriteLog -Path $logLocation -Message "Machines to shutdown $($actionsToPerform)" -Level Info
+            #Check for machines in maintenance mode that is powered on and is registered
+            
+            #Shutdown these machines
+        }
+    } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
+        #Inside working hours, decide on what to do with current machines
+        $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
+        WriteLog -Path $logLocation -Message "It is currently inside working hours - performing machine analysis" -Level Info
+        If ($action.Task -eq "Scaling") {
+            WriteLog -Path $logLocation -Message "It is currently inside working hours - performing machine analysis" -Level Info
+            WriteLog -Path $logLocation -Message "The current running machines matches the target machines number, performing scaling analysis" -Level Info 
+            #Perform Performance Scaling analysis -  run the performance scaling script to generate XML exports
+            #& $performanceScriptLocation -ctxController $citrixController -interval $performanceInterval -samples $performanceSamples -exportLocation $performanceIndividualLoc -overallExportLocation $performanceOverallLoc
+            
+            If ($(Test-Path -Path $performanceIndividualLoc) -and $(Test-Path -Path $performanceOverallLoc)) {
+                #If the performance xml files exist
+                $individualPerformance = Import-Clixml -Path $performanceIndividualLoc
+                $overallPerformance = Import-Clixml -Path $performanceOverallLoc
+                
+            } Else {
+                WriteLog -Path $logLocation -Message "There has been an error gathering performance metrics for scaling calculations - the xml export files do not exist in the given location" -Level Error
+                SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error gathering performance metrics for scaling calculations - the xml export files do not exist in the given location" -attachment $logLocation -Level Error 
+            }
+        
+        } ElseIf ($action.Task -eq "Startup") {
+            #Some machines to startup based on numbers returned
+            WriteLog -Path $logLocation -Message "It is currently inside working hours, machines are required to be started - performing machine analysis" -Level Info
+            WriteLog -Path $logLocation -Message "There are $($machinesOnAndNotMaintenance.RegistrationState.Count) machine(s) currently switched on and registered, $($inHoursMachines - $machinesOnAndMaintenance.RegistrationState.Count) machines are needed" -Level Info
+            #If the amount of machines that are in maintenance mode are greater or equal to the number of machines needed to be started
+            ##Need to work out the maths here
+            If ($machinesOnAndMaintenance.RegistrationState.count -le $($inHoursMachines - $machinesOnAndNotMaintenance.RegistrationState.Count)) {
+                $maintenanceCount = $($inHoursMachines - $machinesOnAndNotMaintenance.RegistrationState.Count)
+                #Select the machines in maintenance mode to be switched on
+                $numberOfMachines = ($machinesOnAndMaintenance | Select -First $($inHoursMachines - $machinesOnAndNotMaintenance.RegistrationState.Count))
+                #For every machine selected turn off maintenance mode
+                ForEach ($machine in $numberOfMachines) {
+                    WriteLog -Path $logLocation -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info
+                    If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode "On"}                    
+                }
+            } Else {
+                #We need to power-up some machines that are currently switched off  
+                #Calculate the number of machines needing to be powered on - minus the machines that have just been powered on
+                $numberOfMachines = ($machinesPoweredOff | Select -First $($inHoursMachines - $machinesOnAndRegistered.RegistrationState.Count)-$maintenanceCount) 
+                #For every machine selected perfom a startup          
+                ForEach ($machine in $numberOfMachines) {
+                    WriteLog -Path $logLocation -Message "Placing $($machine.DNSName) in maintenance mode" -Level Info
+                    If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode "On"}
+                    WriteLog -Path $logLocation -Message "Powering on $($machine.DNSName)" -Level Info
+                    If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.DNSName -machineAction "TurnOn"}
+                }
+            }                   
+
+        } ElseIf ($action.Task -eq "Shutdown") {
+            #Some machines to shutdown based on numbers returned
+            WriteLog -Path $logLocation -Message "It is currently inside working hours, machines are required to be shutdown - performing machine analysis" -Level Info
+            WriteLog -Path $logLocation -Message "There are $($machinesOnAndRegistered.RegistrationState.Count) machine(s) currently switched on and registered" -Level Info
+            #For each machine found to be turned on, check user session are not active and place the machines in maintenance mode and issue a shutdown with a delay of 5 minutes
+            $numberOfMachines = ($machinesOnAndRegistered | Select -First $($inHoursMachines - $machinesOnAndRegistered.RegistrationState.Count))
+            ForEach ($machine in $numberOfMachines) {
+            #Check for any active sessions and perform actions if no active sessions are found
+                If (!$(checkActive -citrixController $citrixController -machine $machine.MachineName)) {
+                    WriteLog -Path $logLocation -Message "$($machine.MachineName) has no active sessions, performing a shutdown" -Level Info
+                    WriteLog -Path $logLocation -Message "Placing $($machine.DNSName) in maintenance mode" -Level Info
+                    If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode "On"}
+                    WriteLog -Path $logLocation -Message "Logging users off of $($machine.DNSName)" -Level Info
+                    If (!$testingOnly) {sessionLogOff -citrixController $citrixController -sessions}
+                    WriteLog -Path $logLocation -Message "Powering off $($machine.DNSName) in $shutdownDelay minutes" -Level Info
+                    If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.DNSName -machineAction "Shutdown" -delay $shutdownDelay}
+                }  Else {
+                    WriteLog -Path $logLocation -Message "There are active sessions on $($machine.DNSName), leaving this machine alone" -Level Info
+                }              
+            }           
+        }
+    } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
+        #There has been an error just comparing the date
+        WriteLog -Path $logLocation -Message "There has been an error calculating the date or time, review the logs" -Level Error
+        SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error calculating the date or time, please review the attached logs" -attachment $logLocation -Level Error
 }
 
+} Else { #Its the weekend
+    WriteLog -Path $logLocation -Message "It is currently a weekend - performing machine analysis" -Level Info
+    $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $(brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix).Count
+    
+    If ($action.Task -eq "Scaling") {
+        WriteLog -Path $logLocation -Message "The current running machines matches the target machines, we are outside of working hours so there is nothing to do" -Level Info
+    
+    } ElseIf ($action.Task -eq "Startup") {
+        #Some machines to startup based on numbers returned
+    
+    } ElseIf ($action.Task -eq "Shutdown") {
+        #Some machines to shutdown based on numbers returned
+    }
+}
 #Log for script finish
 WriteLog -Path $logLocation -Message "PowerScale script finishing" -Level Info -NoClobber
-#SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "This is a test message" -attachment $logLocation -Level Error
 
 
 

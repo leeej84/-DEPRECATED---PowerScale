@@ -16,6 +16,8 @@ param(
     )]
     [String]$ctxController, 
 
+    [String]$machinePrefix, 
+
     [int]$interval = 5,
 
     [int]$samples = 12,
@@ -35,7 +37,7 @@ param(
 asnp Citrix*
 
 #Get a list of live Citrix Servers from the Broker that are currently powered on
-$computers = Get-BrokerMachine -AdminAddress $ctxController | Where {($_.DNSName -match "UKSCTXVDA") -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName
+$computers = Get-BrokerMachine -AdminAddress $ctxController | Where {($_.DNSName -match $machinePrefix) -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName
 
 #Zero out results so we dont see last set of results on the first run of performance information gathering
 $results = ""
@@ -97,7 +99,7 @@ $overallAverage = [PSCustomObject]@{
 }
 
 $overallAverage | Export-Clixml -Path $overallExportLocation
-$overallAverage.overallCPU
-$overallAverage.overallMemory
-$overallAverage.overallIndex
-$overallAverage.overallSession
+"$($overallAverage.overallCPU.Average) - Overall CPU Average"
+"$($overallAverage.overallMemory.Average) - Overall Memory Average"
+"$($overallAverage.overallIndex.Average) - Overall Session Index Average"
+"$($overallAverage.overallSession.Average) - Overall Session Count Average"
