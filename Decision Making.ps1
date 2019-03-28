@@ -9,31 +9,6 @@
 # Smart Scale is due to be deprecated in May
 
 ################################## Manual Variable Configuration ##################################
-<<<<<<< HEAD
-$performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1"   #Performance gathering script location
-$performanceInterval = "2"                                                                                      #Performance monitoring interval between samples
-$performanceSamples = "5"                                                                                       #Performance monitoring samples (samples * intervals = time taken to measure each machine)
-$performanceIndividualLoc = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Individual_Performance.xml"     #Performance gathering script location
-$performanceOverallLoc = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Overall_Performance.xml"           #Performance gathering script location
-
-$citrixController = "UKSCTXXAC01"                                                                               #Citrix controller name or IP
-$machinePrefix = "UKSCTXPPT"                                                                                    #Machine name prefix to include
-$businessStartTime =  $([DateTime]"06:00")                                                                      #Start time of the business
-$businessCloseTime = $([DateTime]"18:00")                                                                       #End time of the business
-$outOfHoursMachines = "2"                                                                                       #How many machines should be powered on during the weekends
-$inHoursMachines = "4"                                                                                          #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
-$machineScaling = "Schedule"                                                                                    #Options are (Schedule, CPU, Memory, Index or Sessions)
-$logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Scaling_Log.log"                             #Log file location
-$smtpServer = "10.110.4.124"                                                                                    #SMTP server address
-$smtpToAddress = "leee.jeffries@prospects.co.uk"                                                                #Email address to send to
-$smtpFromAddress = "copier@prospects.co.uk"                                                                     #Email address mails will come from
-$smtpSubject = "PowerScale"                                                                                     #Mail Subject (will be appended with Error if error
-$messageIntervalOne = "3"                                                                                       #First message interval
-$messageIntervalTwo = "2"                                                                                       #Second message interval
-$shutdownDelay = "5"                                                                                            #Shutdown time in minutes
-
-$testingOnly = $true                                                                                            #Debugging value, will only write out to the log
-=======
 $performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1" #Performance gathering script location
 $citrixController = "UKSCTXXAC01"                                                           #Citrix controller name or IP
 $machinePrefix = "UKSCTXVDA"                                                                #Machine name prefix to include
@@ -48,7 +23,6 @@ $smtpToAddress = "leee.jeffries@prospects.co.uk"                                
 $smtpFromAddress = "copier@prospects.co.uk"                                                 #Email address mails will come from
 $smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
->>>>>>> 2ea02697d913738e791298238ee77d481924b9be
 ################################## Manual Variable Configuration ##################################
 ################################### Test Variable Configuration ###################################
 

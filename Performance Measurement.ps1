@@ -37,11 +37,7 @@ param(
 asnp Citrix*
 
 #Get a list of live Citrix Servers from the Broker that are currently powered on
-<<<<<<< HEAD
-$computers = Get-BrokerMachine -AdminAddress $ctxController | Where {($_.DNSName -match $machinePrefix) -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName
-=======
 $computers = Get-BrokerMachine -AdminAddress $ctxController | Where {($_.DNSName -match "UKSCTXVDA") -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName #SC 28/03/2019 Replace hardcoded UKSCTXVDA with a variable
->>>>>>> 2ea02697d913738e791298238ee77d481924b9be
 
 #Zero out results so we dont see last set of results on the first run of performance information gathering
 $results = ""
