@@ -6,27 +6,35 @@
 #Script help:       https://www.leeejeffries.com, please supply any errors or issues you encounter
 #Purpose:           Perform logical operations to shutdown or start VDAs based on performance metrics gathered
 #Enterprise users:  This script is recommended for users currently utilising smart scale to power up and down VDA's,
-# Smart Scale is due to be deprecated in May
+# Smart Scale is due to be deprecated in May 2019
 
-################################## Manual Variable Configuration ##################################
-$performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1" #Performance gathering script location
-$citrixController = "XDDC-01.ctxlab.local"                                                           #Citrix controller name or IP
-$machinePrefix = "XDSH"                                                                #Machine name prefix to include
-$businessStartTime =  $([DateTime]"06:00")                                                  #Start time of the business
-$businessCloseTime = $([DateTime]"18:00")                                                   #End time of the business
-$outOfHoursMachines = "0"                                                                      #How many machines should be powered on during the weekends
-$inHoursMachines = "2"                                                                     #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
-$machineScaling = "Schedule"                                                                 #Options are (Schedule, CPU, Memory, Index or Sessions)
-$logLocation = "C:\Users\leee.jeffries.ctxlab.000\OneDrive - Leee Jeffries\Source\PowerScale\PowerScale_Log.log"         #Log file location
-$smtpServer = "192.168.2.200"                                                                #SMTP server address
-$smtpToAddress = "leee.jeffries@leee.jeffries.com"                                            #Email address to send to
-$smtpFromAddress = "leee.jeffries@leee.jeffries.com"                                                 #Email address mails will come from
-$smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
-$testingOnly = $true                                                                        #Debugging value, will only write out to the log
-################################## Manual Variable Configuration ##################################
-################################### Test Variable Configuration ###################################
+#Function to pull in configuration information from the config file
+Function configurationImport () {
+    If (Test-Path ("$scriptPath\config.xml")) {
+        Return Import-Clixml -Path "$scriptPath\config.xml"
+    } else {
+        Return "Error"
+    }
+}
 
-################################### Test Variable Configuration ###################################
+#Pull in all configuration information
+$configInfo = configurationImport
+
+#Set all variables for the script
+$performanceScriptLocation = $configInfo.performanceScriptLocation 
+$citrixController = $configInfo.citrixController                                                          
+$machinePrefix = $configInfo.machinePrefix 
+$businessStartTime =  $configInfo.businessStartTime 
+$businessCloseTime = $configInfo.businessCloseTime 
+$outOfHoursMachines = $configInfo.outOfHoursMachines
+$inHoursMachines = $configInfo.inHoursMachines
+$machineScaling = $configInfo.machineScaling 
+$logLocation = $configInfo.logLocation 
+$smtpServer = $configInfo.smtpServer
+$smtpToAddress = $configInfo.smtpToAddress
+$smtpFromAddress = $configInfo.smtpFromAddress
+$smtpSubject = $configInfo.smtpSubject
+$testingOnly = $configInfo.testingOnly
 
 #Setup a time object for comparison
 $timesObj = [PSCustomObject]@{
@@ -38,6 +46,10 @@ $timesObj = [PSCustomObject]@{
 
 #Load Citrix Snap-ins
 Add-PSSnapin Citrix*
+
+#Get current script folder
+$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
+$scriptPath
 
 #Function to create a log file
 Function WriteLog() {
@@ -420,6 +432,8 @@ Function sendMessage () {
     WriteLog -Path $logLocation -Message "Logging off all active user sessions in after sending messages at $($firstMessageInterval/60) and $($secondMessageInterval/60)" -Level Info
     $sessions | Stop-BrokerSession
 }
+
+
 #########################YOU ARE HERE COMPARING VARIABLES###################################
 $allMachines = ""
 $allUserSessions = ""

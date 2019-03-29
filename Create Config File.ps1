@@ -39,7 +39,7 @@ $configContent = [PSCustomObject]@{
     smtpFromAddressComment = "Email address mails will come from"
     smtpFromAddress = "leee.jeffries@leee.jeffries.com"
     smtpSubjectComment = "Mail Subject (will be appended with Error if error"
-    $smtpSubject = "PowerScale"
+    smtpSubject = "PowerScale"
     testingOnlyComment = "Debugging value, will only write out to the log "
     testingOnly = $true
 }
