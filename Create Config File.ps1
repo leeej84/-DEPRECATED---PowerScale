@@ -1,48 +1,63 @@
-$performanceScriptLocation = "C:\Users\leee.jeffries.ctxlab.000\OneDrive - Leee Jeffries\Source\PowerScale\Performance Measurement.ps1" #Performance gathering script location
-$citrixController = "XDDC-01.ctxlab.local"                                                           #Citrix controller name or IP
-$machinePrefix = "XDSH"                                                                #Machine name prefix to include
+$performanceScriptLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\Performance Measurement.ps1" #Performance gathering script location
+$performanceIndividual = "Individual.xml"                                                   #Individual machine performance XML
+$performanceOverAll = "Overall.xml"                                                         #Overall machine performance XML
+$performanceSampleInterval = "1"                                                            #Interval of time to wait between samples
+$performanceSamples = "1"                                                                   #Number of performance samples to gather
+$citrixController = "UKSCTXXAC01.prospects.local"                                           #Citrix controller name or IP
+$machinePrefix = "UKSCTXPPT"                                                                #Machine name prefix to include
 $businessStartTime =  $([DateTime]"06:00")                                                  #Start time of the business
 $businessCloseTime = $([DateTime]"18:00")                                                   #End time of the business
 $outOfHoursMachines = "0"                                                                      #How many machines should be powered on during the weekends
 $inHoursMachines = "2"                                                                     #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
 $machineScaling = "Schedule"                                                                 #Options are (Schedule, CPU, Memory, Index or Sessions)
-$logLocation = "C:\Users\leee.jeffries.ctxlab.000\OneDrive - Leee Jeffries\Source\PowerScale\PowerScale_Log.log"         #Log file location
+$logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\PowerScale_Log.log"         #Log file location
 $smtpServer = "192.168.2.200"                                                                #SMTP server address
 $smtpToAddress = "leee.jeffries@leee.jeffries.com"                                            #Email address to send to
 $smtpFromAddress = "leee.jeffries@leee.jeffries.com"                                                 #Email address mails will come from
 $smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
+$exclusionTag = "excluded"                                                                  #Tag to assign in Studio to exclude a machine from scaling operations
 
 $configContent = [PSCustomObject]@{ 
     performanceScriptLocationComment = "Performance gathering script location"
     performanceScriptLocation = $performanceScriptLocation
+    performanceIndividual = $performanceIndividual = "Individual.xml"                                                   
+    performanceIndividualComment = "Individual machine performance XML"
+    performanceOverall = $performanceOverAll 
+    performanceOverallComment = "Overall machine performance XML"
+    performanceSampleInterval = $performanceSampleInterval 
+    performanceSampleIntervalComment = "Interval of time to wait between samples"
+    performanceSamples = $performanceSamples = "1"
+    performanceSamplesComment = "Number of performance samples to gather"
     citrixControllerComment = "Citrix controller name or IP"
     citrixController = $citrixController  
     machinePrefixComment = "Machine name prefix to include"
-    machinePrefix = "XDSH"
+    machinePrefix = $machinePrefix
     businessStartTimeComment = "Start time of the business"
-    businessStartTime =  $([DateTime]"06:00")
+    businessStartTime =  $businessStartTime
     businessCloseTimeComment = "End time of the business"
-    businessCloseTime = $([DateTime]"18:00")
+    businessCloseTime = $businessCloseTime
     outOfHoursMachinesComment = "How many machines should be powered on during the weekends"
-    outOfHoursMachines = "0"
+    outOfHoursMachines = $outOfHoursMachines
     inHoursMachinesComment = "How many machines should be powered on during the day (InsideOfHours will take into account further machines)"
-    inHoursMachines = "2"
+    inHoursMachines = $inHoursMachines
     machineScalingComment = "Options are (Schedule, CPU, Memory, Index or Sessions)"
-    machineScaling = "Schedule"
+    machineScaling = $machineScaling
     logLocationComment = "Log file location"
-    logLocation = "C:\Users\leee.jeffries.ctxlab.000\OneDrive - Leee Jeffries\Source\PowerScale\PowerScale_Log.log"
+    logLocation = $logLocation
     smtpServerComment = "SMTP server address"
-    smtpServer = "192.168.2.200" 
+    smtpServer = $smtpServer
     smtpToAddressComment = "Email address to send to"
-    smtpToAddress = "leee.jeffries@leee.jeffries.com"
+    smtpToAddress = $smtpToAddress
     smtpFromAddressComment = "Email address mails will come from"
-    smtpFromAddress = "leee.jeffries@leee.jeffries.com"
+    smtpFromAddress = $smtpFromAddress
     smtpSubjectComment = "Mail Subject (will be appended with Error if error"
-    smtpSubject = "PowerScale"
+    smtpSubject = $smtpSubject
+    exclusionTag = $exclusionTag
+    exclusionTagComment = "Tag to assign in Studio to exclude a machine from scaling operations"
     testingOnlyComment = "Debugging value, will only write out to the log "
-    testingOnly = $true
+    testingOnly = $testingOnly
 }
 
-$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-$configContent | Export-Clixml -Path "$scriptPath\config.xml"
+$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition -Verbose
+$configContent | Export-Clixml -Path "$scriptPath\config.xml" -Verbose
