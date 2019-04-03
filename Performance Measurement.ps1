@@ -34,10 +34,14 @@ param(
 )
 
 #Load Citrix Modules
-asnp Citrix*
+try {
+    asnp Citrix*
+} catch {
+    "There has been an error loading powershell snap-ins"
+}
 
 #Get a list of live Citrix Servers from the Broker that are currently powered on
-$computers = Get-BrokerMachine -AdminAddress $ctxController | Where {($_.DNSName -match "UKSCTXVDA") -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName #SC 28/03/2019 Replace hardcoded UKSCTXVDA with a variable
+$computers = Get-BrokerMachine -AdminAddress $ctxController | Where {($_.DNSName -match $machinePrefix) -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName
 
 #Zero out results so we dont see last set of results on the first run of performance information gathering
 $results = ""
