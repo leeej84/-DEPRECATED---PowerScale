@@ -51,7 +51,7 @@ $timesObj = [PSCustomObject]@{
     endTime = $businessCloseTime
     #timeNow = $(Get-Date)
     #Set a specific time for testing
-    timeNow = $([datetime]::ParseExact("06/04/19 13:00", "dd/MM/yy HH:mm", $null))
+    timeNow = $([datetime]::ParseExact("03/04/19 11:00", "dd/MM/yy HH:mm", $null))
 }
 
 #Load Citrix Snap-ins
@@ -325,7 +325,7 @@ Function brokerAction() {
         [int]$delay        
     )
     #Check if a delay has been sent or not and execute the relevant command based on this
-    If ($delay -gt 0) {
+    If ($delay) {
         WriteLog -Path $logLocation -Message "Machine action for $machineName - $machineAction in $delay minutes" -Level Info
         If (!$testingOnly) {New-BrokerDelayedHostingPowerAction -AdminAddress $citrixcontroller -MachineName $machineName -Action $machineAction -Delay $(New-TimeSpan -Minutes $delay) }
     } else {
@@ -423,7 +423,7 @@ Function sendMessage () {
     #Wait for the interval time
     If (!$testingOnly) {start-sleep -seconds ($secondMessageInterval*60)}
 
-    WriteLog -Path $logLocation -Message "Logging off all active user sessions in after sending messages at $($firstMessageInterval) and then $($secondMessageInterval)" -Level Info
+    WriteLog -Path $logLocation -Message "Logging off all active user sessions after sending messages at $($firstMessageInterval) minutes and then $($secondMessageInterval) minutes" -Level Info
     If (!$testingOnly) { $sessions | Stop-BrokerSession }
 }
 
@@ -455,12 +455,9 @@ try {
 #Filter down the main objects into sub variables for scripting ease
 $disconnectedSessions = $allUserSessions | Select * | Where-Object {$_.SessionState -eq "Disconnected"}
 $activeSessions = $allUserSessions | Select * | Where-Object {$_.SessionState -eq "Active"}
-$machinesOnAndRegistered = $allMachines | Select * | Where {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")}
 $machinesOnAndMaintenance = $allMachines | Select * | Where {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}
 $machinesOnAndNotMaintenance = $allMachines | Select * | Where {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
 $machinesPoweredOff = $allMachines | Select * | Where {($_.PowerState -eq "Off")}
-$machineActiveSessions = $allUserSessions | Where {$_.SessionState -eq "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
-$machineNonActiveSessions = $allUserSessions | Where {$_.SessionState -ne "Active"} | Select MachineName, UserFullName | sort MachineName | Group MachineName
 #########################Reset All Variables and Get All Metrics###################################
 
 #Main Logic 
@@ -473,18 +470,26 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Path $logLocation -Message "It is currently outside working hours - performing machine analysis" -Level Info
-        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndMaintenance.RegistrationState.Count
+        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         
         If ($action.Task -eq "Scaling") {
             WriteLog -Path $logLocation -Message "The current running machines matches the target machines, we are outside of working hours so there is nothing to do" -Level Info
                    
         } ElseIf ($action.Task -eq "Shutdown") {
-            #Some machines to shutdown based on numbers returned
-            $actionsToPerform = $action.Number
-            WriteLog -Path $logLocation -Message "Machines to shutdown $($actionsToPerform)" -Level Info
-            #Check for machines in maintenance mode that is powered on and is registered
-            
-            #Shutdown these machines
+        #Some machines to shutdown based on numbers returned
+        #Check if we have any disconnected sessions and log them off
+        If ($(($disconnectedSessions | Measure-Object).Count) -gt 0) {
+            sessionLogOff -citrixController $citrixController -sessions $disconnectedSessions
+        }
+        #Check if we have any active sessions and log send a message before logging off
+        If ($(($activeSessions | Measure-Object).Count) -gt 0) {
+            sendMessage -citrixController $citrixController -firstMessageInterval 1 -secondMessageInterval 1 -sessions $activeSessions
+        } 
+        #For everymachine powered on up to the correct number, switch the poweroff
+        $machinesToPowerOff = $machinesOnAndNotMaintenance | Select -First $($action.number)
+        foreach ($machine in $machinesToPowerOff) {
+            brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff
+        } 
         }
     }    ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines
@@ -508,32 +513,62 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         
         } ElseIf ($action.Task -eq "Startup") {
             #Some machines to startup based on numbers returned
-            WriteLog -Path $logLocation -Message "It is currently inside working hours, machines are required to be started - performing machine analysis" -Level Info
-            WriteLog -Path $logLocation -Message "There are $($machinesOnAndNotMaintenance.RegistrationState.Count) machine(s) currently switched on and registered, $($inHoursMachines - $machinesOnAndMaintenance.RegistrationState.Count) machines are needed" -Level Info
+            WriteLog -Path $logLocation -Message "It is currently inside working hours, machines are required to be started" -Level Info
+            WriteLog -Path $logLocation -Message "There are $($machinesOnAndNotMaintenance.RegistrationState.Count) machine(s) currently switched on and registered, There are $($machinesOnAndMaintenance.RegistrationState.Count) machine(s) in maintenance mode and there are $($machinesPoweredOff.MachineName.Count) machine(s) powered off" -Level Info
+            WriteLog -Path $logLocation -Message "In total there are $($($machinesOnAndMaintenance.RegistrationState.Count) + $($machinesPoweredOff.MachineName.Count)) machine(s) able to be placed into service." -Level Info
+            
             #If the amount of machines that are in maintenance mode are greater or equal to the number of machines needed to be started
-            ##Need to work out the maths here
-            If ($machinesOnAndMaintenance.RegistrationState.count -le $($inHoursMachines - $machinesOnAndNotMaintenance.RegistrationState.Count)) {
-                $maintenanceCount = $($inHoursMachines - $machinesOnAndNotMaintenance.RegistrationState.Count)
-                #Select the machines in maintenance mode to be switched on
-                $numberOfMachines = ($machinesOnAndMaintenance | Select -First $($inHoursMachines - $machinesOnAndNotMaintenance.RegistrationState.Count))
-                #For every machine selected turn off maintenance mode
-                ForEach ($machine in $numberOfMachines) {
-                    WriteLog -Path $logLocation -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info
-                    If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode "On"}                    
+            #Check if the number of machines available will service the requirement for machines needed
+            If($action.number -le $($($machinesOnAndMaintenance.RegistrationState.Count) + $($machinesPoweredOff.MachineName.Count))) {
+                WriteLog -Path $logLocation -Message "The number of machines available is $($($machinesOnAndMaintenance.RegistrationState.Count) + $($machinesPoweredOff.MachineName.Count)) and the number required is $($action.number)" -Level Info
+                if ($action.number -le $($machinesOnAndMaintenance.RegistrationState.Count)) {
+                    #The number of machines in maintenance mode will service the request
+                    WriteLog -Path $logLocation -Message "The number of machines in maintenance mode is $($machinesOnAndMaintenance.RegistrationState.Count) and the number of machine(s) needed is $($action.number)" -Level Info
+                    WriteLog -Path $logLocation -Message "There are sufficient machines in maintenance mode to service the request" -Level Info
+                    foreach ($machine in $($machinesOnAndMaintenance | Select -First $($action.number))) {
+                        #Take machines out of maintenance mode
+                        WriteLog -Path $logLocation -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
+                        If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}
+                        maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off
+                    }
+                } else {
+                    #The number of machines in maintenance mode will not service the request, we need to power on machines too
+                    WriteLog -Path $logLocation -Message "The number of machines in maintenance mode is $($machinesOnAndMaintenance.RegistrationState.Count) and the number of machine(s) needed is $($action.number)" -Level Info
+                    WriteLog -Path $logLocation -Message "There are not sufficient machines in maintenance mode to service the request, we will power some on too" -Level Info
+                    foreach ($machine in $($machinesOnAndMaintenance)) {
+                        #Take machines out of maintenance mode
+                        WriteLog -Path $logLocation -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
+                        If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}
+                        maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off
+                    }
+                    #Power on the machines we need by subtracting the machines already in maintenance mode from what is needed
+                    foreach ($machine in $machinesPoweredOff | Select -First $($($action.Number)-$($machinesOnAndMaintenance.RegistrationState.Count))) {
+                        #Power machines on
+                        WriteLog -Path $logLocation -Message "Turning On $($machine.DNSName)" -Level Info 
+                        If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn}
+                        brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn
+                    }
                 }
-            } Else {
-                #We need to power-up some machines that are currently switched off  
-                #Calculate the number of machines needing to be powered on - minus the machines that have just been powered on
-                $numberOfMachines = ($machinesPoweredOff | Select -First $($inHoursMachines - $machinesOnAndRegistered.RegistrationState.Count)-$maintenanceCount) 
-                #For every machine selected perfom a startup          
-                ForEach ($machine in $numberOfMachines) {
-                    WriteLog -Path $logLocation -Message "Placing $($machine.DNSName) in maintenance mode" -Level Info
-                    If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode "On"}
-                    WriteLog -Path $logLocation -Message "Powering on $($machine.DNSName)" -Level Info
-                    If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.DNSName -machineAction "TurnOn"}
-                }
-            }                   
 
+            } else {
+                WriteLog -Path $logLocation -Message "The number of machines available is $($($machinesOnAndMaintenance.RegistrationState.Count) + $($machinesPoweredOff.MachineName.Count)) and the number required is $($action.number)" -Level Info
+                WriteLog -Path $logLocation -Message "There are not enough machines available to service the request, working on the machines we can" -Level Warn
+
+                #Take machines out of maintenance mode that are powered on and registered
+                foreach ($machine in $machinesOnAndMaintenance) {
+                    #Take machines out of maintenance mode
+                    WriteLog -Path $logLocation -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
+                    If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}
+                    maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off
+                }
+
+                foreach ($machine in $machinesPoweredOff) {
+                    #Power machines on
+                    WriteLog -Path $logLocation -Message "Turning On $($machine.DNSName)" -Level Info 
+                    If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn}
+                    brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn
+                }
+            }
         } 
     } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
         #There has been an error just comparing the date
