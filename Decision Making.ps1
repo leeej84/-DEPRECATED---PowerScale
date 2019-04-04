@@ -462,7 +462,7 @@ $machinesPoweredOff = $allMachines | Select * | Where {($_.PowerState -eq "Off")
 
 #Main Logic 
 #Log for script start
-WriteLog -Path $logLocation -Message "PowerScale script starting - Test mode value is $testingOnly" -Level Info
+WriteLog -Path $logLocation -Message "#######PowerScale script starting - Test mode value is $testingOnly#######" -Level Info
 
 #Is it a weekday?
 If ($(IsWeekDay -date $($timesObj.timeNow))) {
@@ -600,7 +600,8 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
     }
 }
 #Log for script finish
-WriteLog -Path $logLocation -Message "PowerScale script finishing" -Level Info -NoClobber
+WriteLog -Path $logLocation -Message "#######PowerScale script finishing#######" -Level Info -NoClobber
+WriteLog -Path $logLocation -Message "-" -Level Info -NoClobber
 
 
 
