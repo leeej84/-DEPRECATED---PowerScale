@@ -45,13 +45,16 @@ $smtpSubject = $configInfo.smtpSubject
 $testingOnly = $configInfo.testingOnly
 $exclusionTag = $configInfo.exclusionTag
 
+#Get current date in correct format
+$dateNow = $(Get-Date -Format dd/MM/yy).ToString()
+
 #Setup a time object for comparison
 $timesObj = [PSCustomObject]@{
-    startTime = $businessStartTime
-    endTime = $businessCloseTime
-    #timeNow = $(Get-Date)
+    startTime = [datetime]::ParseExact($("$($dateNow) $($businessStartTime)"), "dd/MM/yy HH:mm", $null)
+    endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
+    timeNow = $(Get-Date)
     #Set a specific time for testing
-    timeNow = $([datetime]::ParseExact("03/04/19 11:00", "dd/MM/yy HH:mm", $null))
+    #timeNow = $([datetime]::ParseExact("03/04/19 11:00", "dd/MM/yy HH:mm", $null))
 }
 
 #Load Citrix Snap-ins
@@ -215,9 +218,9 @@ Function IsWeekDay() {
 
 #Function to check if inside of business hours or outside to business hours
 Function TimeCheck($timeObj) {
-    If (($timesObj.timeNow -lt $timesObj.startTime) -or ($timesObj.timeNow -gt $timesObj.endTime)) {
+    If (($timesObj.timeNow.Hour -lt $timesObj.startTime.Hour) -or ($timesObj.timeNow.Hour -gt $timesObj.endTime.Hour)) {
         Return "OutOfHours" #OutOfHours as we are outside of working hours
-    } ElseIf (($timesObj.timeNow -ge $timesObj.startTime) -and ($timesObj.timeNow -le $timesObj.endTime)) {
+    } ElseIf (($timesObj.timeNow.Hour -ge $timesObj.startTime.Hour) -and ($timesObj.timeNow.Hour -le $timesObj.endTime.Hour)) {
         Return "InsideOfHours" #Dont OutOfHours as we are inside working hours
     } Else {
         Return "Error" #Dont do anything if the time calculation is not conclusive
