@@ -441,18 +441,21 @@ try {
     #& $performanceScriptLocation -ctxController $citrixController -machinePrefix $machinePrefix -interval $performanceInterval -samples $performanceSamples -exportLocation "$scriptPath\Individual.xml" -overallExportLocation "$scriptPath\Overall.xml"
 } catch {
     WriteLog -Path $logLocation -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and WMI. " -Level Error
+    Exit-PSSession
 }
 try {
     $allMachines = brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix | Where-Object {$_.Tags -notcontains $exclusionTag}
     $allUserSessions = brokerUserSessions -citrixController $citrixController -machinePrefix $machinePrefix | Where-Object {$_.Tags -notcontains $exclusionTag}
 } catch {
     WriteLog -Path $logLocation -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
+    Exit-PSSession
 }
 try {
     $individualPerformance = Import-cliXml -Path "$ScriptPath\Individual.xml"
     $overallPerformance = Import-cliXml -Path "$ScriptPath\Overall.xml"
 } catch {
     WriteLog -Path $logLocation -Message "There was an error generating and then importing the performance data, please ensure the performance script can run standalone using parameters." -Level Error
+    Exit-PSSession
 }
 
 #Filter down the main objects into sub variables for scripting ease
