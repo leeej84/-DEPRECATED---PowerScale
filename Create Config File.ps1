@@ -10,13 +10,18 @@ $businessCloseTime = "18:00"                                                    
 $outOfHoursMachines = "0"                                                                   #How many machines should be powered on during the weekends
 $inHoursMachines = "2"                                                                      #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
 $machineScaling = "Schedule"                                                                #Options are (Schedule, CPU, Memory, Index or Sessions)
+$LogNumberOfDays = 7                                                                        #Days to rotate the logs after
+$LogMaxSize = 100                                                                           #Max Log size
 $logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\PowerScale_Log.log"      #Log file location
 $smtpServer = "10.110.4.32"                                                               #SMTP server address
 $smtpToAddress = "leee.jeffries@prospects.co.uk"                                          #Email address to send to
 $smtpFromAddress = "copier@prospects.co.ukr"                                        #Email address mails will come from
 $smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
-$exclusionTag = "excluded"                                                                  #Tag to assign in Studio to exclude a machine from scaling operations
+$exclusionTag = "excluded"   
+
+          
+#Tag to assign in Studio to exclude a machine from scaling operations
 
 $configContent = [PSCustomObject]@{ 
     performanceScriptLocationComment = "Performance gathering script location"
@@ -43,6 +48,10 @@ $configContent = [PSCustomObject]@{
     inHoursMachines = $inHoursMachines
     machineScalingComment = "Options are (Schedule, CPU, Memory, Index or Sessions)"
     machineScaling = $machineScaling
+    LogMaxSizeComment = "Max Log size"
+    LogMaxSize = $LogMaxSize
+    LogNumberOfDaysComment = "Days to rotate the logs after"
+    LogNumberOfDays = $LogNumberOfDays 
     logLocationComment = "Log file location"
     logLocation = $logLocation
     smtpServerComment = "SMTP server address"

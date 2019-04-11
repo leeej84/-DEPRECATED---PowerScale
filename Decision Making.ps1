@@ -38,7 +38,7 @@ $outOfHoursMachines = $configInfo.outOfHoursMachines
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling 
 $logLocation = $configInfo.logLocation 
-$LogNumberOfDays = $configInfo.LogNumberOfDays
+$LogNumberOfDays = $configInfo.LogNumberOfDays #not implemented yet
 $LogMaxSize = $configInfo.LogMaxSize
 $smtpServer = $configInfo.smtpServer
 $smtpToAddress = $configInfo.smtpToAddress
@@ -177,7 +177,7 @@ Function CircularLogging() {
             }
             #compare to LogMaxSize
         While ($totalsize/1MB -gt $LogMaxSize)
-                 
+        WriteLog -Path $logLocation -Message "Performing Circular Log Management" -Level Info
         
     } 
     End 
