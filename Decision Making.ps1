@@ -38,6 +38,8 @@ $outOfHoursMachines = $configInfo.outOfHoursMachines
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling 
 $logLocation = $configInfo.logLocation 
+$LogNumberOfDays = $configInfo.LogNumberOfDays
+$LogMaxSize = $configInfo.LogMaxSize
 $smtpServer = $configInfo.smtpServer
 $smtpToAddress = $configInfo.smtpToAddress
 $smtpFromAddress = $configInfo.smtpFromAddress
@@ -73,7 +75,8 @@ Function WriteLog() {
  
         [Parameter(Mandatory=$true, HelpMessage = "The location of the logfile to be written to.")] 
         [Alias('LogPath')] 
-        [string]$Path='C:\Logs\PowerShellLog.log', 
+        #SC: I will append the .log later on Process along with the date
+        [string]$Path='C:\Logs\PowerShellLog', 
          
         [Parameter(Mandatory=$false, HelpMessage = "The error level of the event.")] 
         [ValidateSet("Error","Warn","Info")] 
@@ -90,6 +93,10 @@ Function WriteLog() {
     } 
     Process 
     { 
+        # append the date to the $path variable. It will also append .log at the end.
+        $DateForLogFileName = Get-Date -Format "yyyy-MM-dd"
+        $Path = $Path + "_" + $DateForLogFileName+".log"
+
         # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path. 
         If (!(Test-Path $Path)) { 
             Write-Verbose "Creating $Path." 
@@ -102,8 +109,8 @@ Function WriteLog() {
  
         # Format Date for our Log File 
         $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss" 
- 
-        # Write message to error, warning, or verbose pipeline and specify $LevelText 
+        
+         # Write message to error, warning, or verbose pipeline and specify $LevelText 
         switch ($Level) { 
             'Error' { 
                 Write-Error $Message 
@@ -126,6 +133,58 @@ Function WriteLog() {
     { 
     } 
 }
+
+Function CircularLogging() {
+
+    [CmdletBinding()] 
+    Param 
+    ( 
+        [Parameter(Mandatory=$true, HelpMessage = "The number of days to keep logs of.")] 
+        [ValidateNotNullOrEmpty()] 
+        [Alias("LogNumberOfDays")] 
+        [int]$LogNumberOfDays=7, 
+
+        [Parameter(Mandatory=$true, HelpMessage = "The location of the logfile to be written to.")] 
+        [Alias('LogPath')] 
+        [string]$Path='C:\Logs\PowerShellLog', 
+         
+        [Parameter(Mandatory=$true, HelpMessage = "The maximum size of the log file in MB.")] 
+        [Alias('LogMaxSize')] 
+        [int]$LogMaxSize=100,
+
+        [Parameter(Mandatory=$true, HelpMessage = "Log type to process")] 
+        [ValidateNotNullOrEmpty()] 
+        [Alias("LogTypeToProcess")] 
+        [string]$LogTypeToProcess='PowerShellLog'
+                
+    ) 
+ 
+    Begin 
+    { 
+        # Set VerbosePreference to Continue so that verbose messages are displayed. 
+        $VerbosePreference = 'Continue' 
+    } 
+    Process 
+    {          
+        Do {
+            Write-Verbose "Log file $Path is > $LogMaxSize, removing oldest log file" 
+            #get all log files in the script folder that match LogTypeToProcess e.g. PowerShellLog, select the oldest one and remove it.
+            Get-ChildItem ($scriptpath+"\$LogTypeToProcess*.log") | Sort CreationTime | Select -First 1 | Remove-Item 
+            #initialize log size total variable
+            [int]$totalsize=0
+            #get log file size and store in variable
+            Get-ChildItem ($scriptpath+"\$LogTypeToProcess*.log") | ForEach-Object {$totalsize=$totalsize+$_.Length}
+            }
+            #compare to LogMaxSize
+        While ($totalsize/1MB -gt $LogMaxSize)
+                 
+        
+    } 
+    End 
+    { 
+    } 
+}
+
 
 #Function to send an email message in same format as the log
 Function SendEmail() {
