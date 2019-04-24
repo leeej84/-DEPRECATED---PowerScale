@@ -489,6 +489,104 @@ Function sendMessage () {
     If (!$testingOnly) { $sessions | Stop-BrokerSession }
 }
 
+Function performanceAnalysis () {
+    [CmdletBinding()] 
+
+    param(
+    [Parameter(Mandatory=$true, HelpMessage = "Specifies which Citrix Controller to use, you must have admin rights on the site")]    
+    [ValidateNotNullOrEmpty()] 
+    [string]$citrixController, 
+
+    [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]   
+    [ValidateNotNullOrEmpty()]     
+    [string]$machinePrefix,
+
+    [Parameter(Mandatory=$true, HelpMessage = "Interval between performance samples")]   
+    [ValidateNotNullOrEmpty()]     
+    [int]$performanceInterval,
+
+    [Parameter(Mandatory=$true, HelpMessage = "Number of performance samples to gather")]   
+    [ValidateNotNullOrEmpty()]     
+    [int]$performanceSamples,
+
+    [Parameter(Mandatory=$true, HelpMessage = "Export location for individual machine performance details")]   
+    [ValidateNotNullOrEmpty()]     
+    [string]$exportLocation,
+
+    [Parameter(Mandatory=$true, HelpMessage = "Export location for overall average machine performance details")]   
+    [ValidateNotNullOrEmpty()]     
+    [string]$overallExportLocation
+)
+
+#Get a list of live Citrix Servers from the Broker that are currently powered on
+$computers = Get-BrokerMachine -AdminAddress $citrixController | Where {($_.DNSName -match $machinePrefix) -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName
+
+#Zero out results so we dont see last set of results on the first run of performance information gathering
+$results = ""
+
+#Loop through each machine obtained from the broker and gathers its information for scaling puroposes
+ForEach ($computer in $computers) {    
+    Start-Job -Name $computer -ScriptBlock {
+        param (
+        $computer,
+        $ctxController,
+        $interval,
+        $samples
+        )
+
+        #Load the Citrix snap-ins
+        asnp Citrix*    
+        
+        #Create a custom object to store the results
+        $results = [PSCustomObject]@{
+        Machine = $computer
+        CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+        Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+        LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand LoadIndex
+        Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand SessionCount
+        } 
+        
+        #Write out the results for this computer only if the CPU and Memory calculations worked
+        if ($results.CPU -eq 0 -or $results.memory -eq 0) {
+            $results
+        } else {
+            $results
+        }
+    
+    } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
+}
+
+#Loop through all running jobs every 5 seconds to see if complete, if they are; receive the jobs and store the metrics
+$Metrics = Do {
+    $runningJobs = Get-Job | Where {$_.State -ne "Completed"}
+    $completedJobs = Get-Job |  Where {$_.State -eq "Completed"}
+    ForEach ($job in $completedJobs) {
+        Receive-Job $job | Select-Object * -ExcludeProperty RunspaceId 
+        Remove-Job $job
+    }
+
+    Start-Sleep -Seconds 5
+} Until ($runningJobs.Count -eq 0)
+
+#Export metrics as XML to be read into another scripts as an object
+$Metrics | Export-Clixml -Path $exportLocation
+$Metrics
+
+#Custom object for overall averages
+$overallAverage = [PSCustomObject]@{
+    overallCPU = $Metrics | Measure-Object -Property CPU -Average -Minimum -Maximum
+    overallMemory = $Metrics | Measure-Object -Property Memory -Average -Minimum -Maximum -Sum  
+    overallIndex = $Metrics | Measure-Object -Property LoadIndex -Average -Minimum -Maximum
+    overallSession = $Metrics | Measure-Object -Property Sessions -Average -Minimum -Maximum
+}
+
+$overallAverage | Export-Clixml -Path $overallExportLocation
+"$($overallAverage.overallCPU.Average) - Overall CPU Average"
+"$($overallAverage.overallMemory.Average) - Overall Memory Average"
+"$($overallAverage.overallIndex.Average) - Overall Session Index Average"
+"$($overallAverage.overallSession.Average) - Overall Session Count Average"
+
+}
 
 #########################Reset All Variables and Get All Metrics###################################
 #Reset variables (to avoid different data from multiple script runs)
@@ -497,7 +595,7 @@ $allUserSessions = ""
 
 #Run the performance monitoring script to create XML files
 try {
-    #& $performanceScriptLocation -ctxController $citrixController -machinePrefix $machinePrefix -interval $performanceInterval -samples $performanceSamples -exportLocation "$scriptPath\Individual.xml" -overallExportLocation "$scriptPath\Overall.xml"
+    performanceAnalysis -citrixController $citrixController -machinePrefix $machinePrefix -performanceSamples $performanceSamples -performanceInterval $performanceInterval -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
 } catch {
     WriteLog -Path $logLocation -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and WMI. " -Level Error
     Exit-PSSession
