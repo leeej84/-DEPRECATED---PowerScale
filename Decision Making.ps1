@@ -21,6 +21,18 @@ Function configurationImport () {
     }
 }
 
+function WMIDetailsImport () {
+    # Define variables
+    $Directory = $scriptPath
+    $KeyFile = Join-Path $Directory  "AES_KEY_FILE.key"
+    $PasswordFile = Join-Path $Directory "AES_PASSWORD_FILE.pass"
+
+    # Read the secure password from a password file and decrypt it to a normal readable string
+    $SecurePassword = ( (Get-Content $PasswordFile) | ConvertTo-SecureString -Key (Get-Content $KeyFile) )        # Convert the standard encrypted password stored in the password file to a secure string using the AES key file
+    $Credentials = New-Object System.Management.Automation.PSCredential ($wmiServiceAccount, $SecurePassword)
+    Return $Credentials
+}
+
 #Pull in all configuration information
 $configInfo = configurationImport
 
@@ -46,6 +58,7 @@ $smtpFromAddress = $configInfo.smtpFromAddress
 $smtpSubject = $configInfo.smtpSubject
 $testingOnly = $configInfo.testingOnly
 $exclusionTag = $configInfo.exclusionTag
+$wmiServiceAccount = $configInfo.wmiServiceAccount
 
 #Get current date in correct format
 $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
@@ -76,7 +89,7 @@ Function WriteLog() {
         [Parameter(Mandatory=$true, HelpMessage = "The location of the logfile to be written to.")] 
         [Alias('LogPath')] 
         #SC: I will append the .log later on Process along with the date
-        [string]$Path='C:\Logs\PowerShellLog', 
+        [string]$Path, 
          
         [Parameter(Mandatory=$false, HelpMessage = "The error level of the event.")] 
         [ValidateSet("Error","Warn","Info")] 
@@ -525,38 +538,43 @@ $computers = Get-BrokerMachine -AdminAddress $citrixController | Where {($_.DNSN
 $results = ""
 
 #Loop through each machine obtained from the broker and gathers its information for scaling puroposes
-ForEach ($computer in $computers) {    
-    Start-Job -Name $computer -ScriptBlock {
-        param (
-        $computer,
-        $ctxController,
-        $interval,
-        $samples
-        )
+ForEach ($computer in $computers) {
+    #Only gather performance metrics for machines that we have WMI access to
+    If  ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName UKSCTXPPT31 -Credential $(WMIDetailsImport))) {   
+        Start-Job -Name $computer -Credential $(WMIDetailsImport) -ScriptBlock {
+            param (
+            $computer,
+            $ctxController,
+            $interval,
+            $samples
+            )
 
-        #Load the Citrix snap-ins
-        asnp Citrix*    
+            #Load the Citrix snap-ins
+            Add-PSSnapin Citrix*    
+            
+            #Create a custom object to store the results
+            $results = [PSCustomObject]@{
+            Machine = $computer
+            CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+            Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+            LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand LoadIndex
+            Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand SessionCount
+            } 
+            
+            #Write out the results for this computer only if the CPU and Memory calculations worked
+            if ($results.CPU -eq 0 -or $results.memory -eq 0) {
+                $results
+            } else {
+                $results
+            }
         
-        #Create a custom object to store the results
-        $results = [PSCustomObject]@{
-        Machine = $computer
-        CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-        Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-        LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand LoadIndex
-        Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand SessionCount
-        } 
-        
-        #Write out the results for this computer only if the CPU and Memory calculations worked
-        if ($results.CPU -eq 0 -or $results.memory -eq 0) {
-            $results
-        } else {
-            $results
-        }
-    
-    } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
+        } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
+    } else {
+        #There was an error grabbing WMI info from a particular machine
+        WriteLog -Path $logLocation -Message "There has been an error collecting WMI info from $computer" -Level Error
+    }
 }
-
-#Loop through all running jobs every 5 seconds to see if complete, if they are; receive the jobs and store the metrics
+    #Loop through all running jobs every 5 seconds to see if complete, if they are; receive the jobs and store the metrics
 $Metrics = Do {
     $runningJobs = Get-Job | Where {$_.State -ne "Completed"}
     $completedJobs = Get-Job |  Where {$_.State -eq "Completed"}
@@ -598,7 +616,7 @@ try {
     performanceAnalysis -citrixController $citrixController -machinePrefix $machinePrefix -performanceSamples $performanceSamples -performanceInterval $performanceInterval -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
 } catch {
     WriteLog -Path $logLocation -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and WMI. " -Level Error
-    #Log out the latest error - does not mean performance measurement was unsuccessful
+    #Log out the latest error - does not mean performance measurement was unsuccessful on all machines
     WriteLog -Path $logLocation -Message "$Error[$($Error.Count)]" -Level Error
     Exit-PSSession
 }
@@ -670,6 +688,14 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                 #If the performance xml files exist
                 $individualPerformance = Import-Clixml -Path "$scriptPath\$performanceIndividual"
                 $overallPerformance = Import-Clixml -Path "$scriptPath\$performanceOverall"
+
+                $overallPerformance.overallCPU
+                ###LJ###This is where decisions need to be made about scaling up as we are inside hours and performance data exists
+                ###LJ###First check the number of machines available to be powered on is more than 0
+                ###LJ###One the check is complete we can analyse performance metrics
+                ###LJ###Use variable to decide which type of scaling is applicable
+                ###LJ###Use the overall metrics and specify a variable for each (Averages over the farm)
+                ###See if load evalutation is configured
                 
             } Else {
                 WriteLog -Path $logLocation -Message "There has been an error gathering performance metrics for scaling calculations - the xml export files do not exist in the given location" -Level Error
