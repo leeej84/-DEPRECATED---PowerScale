@@ -23,7 +23,7 @@ $smtpFromAddress = "copier@prospects.co.uk"                                     
 $smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
 $exclusionTag = "excluded"                                                                  #Tag in Studio to ensure a machine is discounted from calculations
-$wmiServiceAccount = "jeffrl-p"                                                             #WMI Service Account Name
+$wmiServiceAccount = "prospects.local\jeffrl-p"                                             #WMI Service Account Name - must include UPN or domain\username
 $wmiServicePassword = ""                                                                    #WMI Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
           
 #Tag to assign in Studio to exclude a machine from scaling operations
