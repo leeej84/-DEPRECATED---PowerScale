@@ -13,13 +13,14 @@ $machineScaling = "Schedule"                                                    
 $LogNumberOfDays = 7                                                                        #Days to rotate the logs after
 $LogMaxSize = 100                                                                           #Max Log size
 $logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\PowerScale_Log.log"      #Log file location
-$smtpServer = "10.110.4.32"                                                               #SMTP server address
-$smtpToAddress = "leee.jeffries@prospects.co.uk"                                          #Email address to send to
-$smtpFromAddress = "copier@prospects.co.ukr"                                        #Email address mails will come from
+$smtpServer = "10.110.4.32"                                                                 #SMTP server address
+$smtpToAddress = "leee.jeffries@prospects.co.uk"                                            #Email address to send to
+$smtpFromAddress = "copier@prospects.co.uk"                                                 #Email address mails will come from
 $smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
-$exclusionTag = "excluded"   
-
+$exclusionTag = "excluded"                                                                  #Tag in Studio to ensure a machine is discounted from calculations
+$wmiServiceAccount = "jeffrl-p"                                                             #WMI Service Account Name
+$wmiServicePassword = ""                                                     #WMI Service Account Password (Remove once this script is run)
           
 #Tag to assign in Studio to exclude a machine from scaling operations
 
@@ -67,6 +68,48 @@ $configContent = [PSCustomObject]@{
     testingOnlyComment = "Debugging value, will only write out to the log "
     testingOnly = $testingOnly
 }
+
+# Define variables
+$Directory = split-path -parent $MyInvocation.MyCommand.Definition
+$KeyFile = Join-Path $Directory  "AES_KEY_FILE.key"
+$PasswordFile = Join-Path $Directory "AES_PASSWORD_FILE.pass"
+
+$Password = $wmiServicePassword
+
+#Remove previous password files if they exist
+if ($(Test-Path $KeyFile) -eq $true) {
+    Remove-Item -Path $KeyFile -Force
+}
+
+if ($(Test-Path $PasswordFile) -eq $true) {
+    Remove-Item -Path $PasswordFile -Force
+}
+
+# Create the AES key file
+try {
+$Key = New-Object Byte[] 32
+[Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($Key)
+$Key | out-file $KeyFile
+        $KeyFileCreated = $True
+    Write-Host "The key file $KeyFile was created successfully"
+} catch {
+    write-Host "An error occurred trying to create the key file $KeyFile (error: $($Error[0])"
+}
+
+Start-Sleep 2
+
+# Add the plaintext password to the password file (and encrypt it based on the AES key file)
+If ( $KeyFileCreated -eq $True ) {
+    try {
+    $Key = Get-Content $KeyFile
+        $encPassword = ConvertTo-SecureString $Password -AsPlainText -Force
+        $encPassword | ConvertFrom-SecureString -key $Key | Out-File $PasswordFile
+        Write-Host "The key file $PasswordFile was created successfully"
+    } catch {
+        write-Host "An error occurred trying to create the password file $PasswordFile (error: $($Error[0])"
+    }
+} 
+
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition -Verbose
 $configContent | Export-Clixml -Path "$scriptPath\config.xml" -Verbose
