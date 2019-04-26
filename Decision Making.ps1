@@ -64,8 +64,6 @@ $testingOnly = $configInfo.testingOnly
 $exclusionTag = $configInfo.exclusionTag
 $wmiServiceAccount = $configInfo.wmiServiceAccount
 
-#Check variables for any known issues
-
 #Get current date in correct format
 $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
 
@@ -318,26 +316,28 @@ Function levelCheck() {
         [ValidateNotNullOrEmpty()]      
         [int]$targetMachines
     )
+        
+        $scalingFactor = 0
         #Perform some calculation for performance scaling
         If ($machineScaling -eq "CPU") {
-            If ($($performanceOverall.overallCPU) -gt $farmCPUThreshhold) {
+            If ($($overallPerformance.overallCPU.average) -gt $farmCPUThreshhold) {
                 $scalingFactor = 1 
-                WriteLog -Path $logLocation -Message "CPU Threshhold of $farmCPUThreshhold is lower than current farm average of $($performanceOverall.overallCPU), we need to spin up an additional machine" -Level Info -Verbose   
+                WriteLog -Path $logLocation -Message "CPU Threshhold of $farmCPUThreshhold is lower than current farm average of $($overallPerformance.overallCPU.average), we need to spin up an additional machine" -Level Info -Verbose   
             }            
         } elseif ($machineScaling -eq "Memory") {
-            If ($($performanceOverall.overallMemory) -gt $farmMemoryThreshhold) {
+            If ($($overallPerformance.overallMemory.Average) -gt $farmMemoryThreshhold) {
                 $scalingFactor = 1    
-                WriteLog -Path $logLocation -Message "Memory Threshhold of $farmMemoryThreshhold is lower than current farm average of $($performanceOverall.overallMemory), we need to spin up an additional machine" -Level Info -Verbose   
+                WriteLog -Path $logLocation -Message "Memory Threshhold of $farmMemoryThreshhold is lower than current farm average of $($overallPerformance.overallMemory.Average), we need to spin up an additional machine" -Level Info -Verbose   
             }
         } elseif ($machineScaling -eq "Index") {
-            If ($($performanceOverall.overallIndex) -gt $farmIndexThreshhold) {
+            If ($($overallPerformance.overallIndex.Average) -gt $farmIndexThreshhold) {
                 $scalingFactor = 1    
-                WriteLog -Path $logLocation -Message "Index Threshhold of $farmIndexThreshhold is lower than current farm average of $($performanceOverall.overallIndex), we need to spin up an additional machine" -Level Info -Verbose   
+                WriteLog -Path $logLocation -Message "Index Threshhold of $farmIndexThreshhold is lower than current farm average of $($overallPerformance.overallIndex.Average), we need to spin up an additional machine" -Level Info -Verbose   
             }
         } elseif ($machineScaling -eq "Sessions") {
-                If ($($performanceOverall.overallSession) -gt $farmSessionThreshhold) {
+                If ($($overallPerformance.overallSession.Average) -gt $farmSessionThreshhold) {
                     $scalingFactor = 1 
-                    WriteLog -Path $logLocation -Message "Session Threshhold of $farmSessionThreshhold is lower than current farm average of $($performanceOverall.overallSession), we need to spin up an additional machine" -Level Info -Verbose      
+                    WriteLog -Path $logLocation -Message "Session Threshhold of $farmSessionThreshhold is lower than current farm average of $($overallPerformance.overallSession.Average), we need to spin up an additional machine" -Level Info -Verbose      
                 }
         } else {
             WriteLog -Path $logLocation -Message "There is an error in the config for the machine scaling variable as no case was recognised for sclaing - current variable = $machineScaling" -Level Error -Verbose
@@ -360,7 +360,7 @@ Function levelCheck() {
         } elseif ($currentMachines -eq $targetMachines) {
             $action = [PSCustomObject]@{        
                 Task = "Scaling"
-                Number = 0
+                Number = 0 + $scalingFactor
             }
             WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to perform Scaling calculations" -Level Info -Verbose
             
@@ -563,50 +563,95 @@ Function performanceAnalysis () {
     [string]$overallExportLocation
 )
 
+#Check variables for any known issue
+If (-not ([String]::IsNullOrEmpty($wmiServiceAccount))) {
+    #WMI account provided check for upn or domain\username
+    if ((($wmiServiceAccount) -match "\\") -or (($wmiServiceAccount) -match "@")) {
+        "WMI Account seems to be valid"
+        WriteLog -Path $logLocation -Message "The wmi account provided is in the correct format, continuing" -Level Info -Verbose
+    } else {
+        "WMI Account invalid"
+        WriteLog -Path $logLocation -Message "The wmi account provided is not valid for use as it is in an incorrect format, script execution will now stop" -Level Error -Verbose
+        Exit
+    }
+}
+
 #Get a list of live Citrix Servers from the Broker that are currently powered on
-$computers = Get-BrokerMachine -AdminAddress $citrixController | Where {($_.DNSName -match $machinePrefix) -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName
+$computers = Get-BrokerMachine -AdminAddress $citrixController | Where-Object {($_.DNSName -match $machinePrefix) -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName
 
 #Zero out results so we dont see last set of results on the first run of performance information gathering
 $results = ""
 
 #Loop through each machine obtained from the broker and gathers its information for scaling puroposes
 ForEach ($computer in $computers) {
-    #Only gather performance metrics for machines that we have WMI access to
-    If  ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName UKSCTXPPT31 -Credential $(WMIDetailsImport))) {   
-        Start-Job -Name $computer -Credential $(WMIDetailsImport) -ScriptBlock {
-            param (
-            $computer,
-            $ctxController,
-            $interval,
-            $samples
-            )
+    #Check if we have a wmi account to use, if we do check access for each machine, otherwise run in current user context    
+    If  (-not ([String]::IsNullOrEmpty($wmiServiceAccount))) {  
+        #Only gather performance metrics for machines that we have WMI access to 
+        If  ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer -Credential $(WMIDetailsImport))) {
+            Start-Job -Name $computer -Credential $(WMIDetailsImport) -ScriptBlock {
+                param (
+                $computer,
+                $ctxController,
+                $interval,
+                $samples
+                )
 
-            #Load the Citrix snap-ins
-            Add-PSSnapin Citrix*    
+                #Load the Citrix snap-ins
+                Add-PSSnapin Citrix*    
+                
+                #Create a custom object to store the results
+                $results = [PSCustomObject]@{
+                Machine = $computer
+                CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+                Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+                LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand LoadIndex
+                Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand SessionCount
+                } 
+                
+                #Write out the results for this computer only if the CPU and Memory calculations worked
+                if ($results.CPU -eq 0 -or $results.memory -eq 0) {
+                    $results
+                } else {
+                    $results
+                }
             
-            #Create a custom object to store the results
-            $results = [PSCustomObject]@{
-            Machine = $computer
-            CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-            Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-            LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand LoadIndex
-            Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand SessionCount
-            } 
-            
-            #Write out the results for this computer only if the CPU and Memory calculations worked
-            if ($results.CPU -eq 0 -or $results.memory -eq 0) {
-                $results
-            } else {
-                $results
-            }
+            } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
+        }
+    } elseif ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer)) { 
+        Start-Job -Name $computer -ScriptBlock {
+        param (
+        $computer,
+        $ctxController,
+        $interval,
+        $samples
+        )
+
+        #Load the Citrix snap-ins
+        Add-PSSnapin Citrix*    
         
+        #Create a custom object to store the results
+        $results = [PSCustomObject]@{
+        Machine = $computer
+        CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+        Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+        LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand LoadIndex
+        Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand SessionCount
+        } 
+        
+        #Write out the results for this computer only if the CPU and Memory calculations worked
+        if ($results.CPU -eq 0 -or $results.memory -eq 0) {
+            $results
+        } else {
+            $results
+        }
+    
         } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
     } else {
-        #There was an error grabbing WMI info from a particular machine
-        WriteLog -Path $logLocation -Message "There has been an error collecting WMI info from $computer" -Level Error
+        WriteLog -Path $logLocation -Message "There has been an error connecting to any machines to gather performance metrics" -Level Error -Verbose
     }
 }
-    #Loop through all running jobs every 5 seconds to see if complete, if they are; receive the jobs and store the metrics
+    
+#Loop through all running jobs every 5 seconds to see if complete, if they are; receive the jobs and store the metrics
 $Metrics = Do {
     $runningJobs = Get-Job | Where {$_.State -ne "Completed"}
     $completedJobs = Get-Job |  Where {$_.State -eq "Completed"}
@@ -706,34 +751,19 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
             brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff
         } 
         }
-    }    ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
+    } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines
         $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         WriteLog -Path $logLocation -Message "It is currently inside working hours - performing machine analysis" -Level Info
-        If ($action.Task -eq "Scaling") {
-            WriteLog -Path $logLocation -Message "It is currently inside working hours - performing machine analysis" -Level Info
+        If ($action.Task -eq "Scaling") {            
             WriteLog -Path $logLocation -Message "The current running machines matches the target machines number, performing scaling analysis" -Level Info 
-            #Perform Performance Scaling analysis -  run the performance scaling script to generate XML exports
-            #& $performanceScriptLocation -ctxController $citrixController -interval $performanceInterval -samples $performanceSamples -exportLocation $performanceIndividualLoc -overallExportLocation $performanceOverallLoc
-            
-            If ($(Test-Path -Path "$scriptPath\$performanceIndividual") -and $(Test-Path -Path $performanceOverall)) {
-                #If the performance xml files exist
-                $individualPerformance = Import-Clixml -Path "$scriptPath\$performanceIndividual"
-                $overallPerformance = Import-Clixml -Path "$scriptPath\$performanceOverall"
-
-                $overallPerformance.overallCPU
-                ###LJ###This is where decisions need to be made about scaling up as we are inside hours and performance data exists
-                ###LJ###First check the number of machines available to be powered on is more than 0
-                ###LJ###One the check is complete we can analyse performance metrics
-                ###LJ###Use variable to decide which type of scaling is applicable
-                ###LJ###Use the overall metrics and specify a variable for each (Averages over the farm)
-                ###See if load evalutation is configured
-                
-            } Else {
-                WriteLog -Path $logLocation -Message "There has been an error gathering performance metrics for scaling calculations - the xml export files do not exist in the given location" -Level Error
-                SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error gathering performance metrics for scaling calculations - the xml export files do not exist in the given location" -attachment $logLocation -Level Error 
-            }
-        
+            #Performance analysis handled by Performance check function
+            #Perform logic to make sure a machine is available
+            #Power on machines from scaling 
+            ####HERE####
+            $action.Number
+            WriteLog -Path $logLocation -Message "Performance scaling advises $($action.Number) machines need to be powered on" -Level Info -NoClobber
+                    
         } ElseIf ($action.Task -eq "Startup") {
             #Some machines to startup based on numbers returned
             WriteLog -Path $logLocation -Message "It is currently inside working hours, machines are required to be started" -Level Info
