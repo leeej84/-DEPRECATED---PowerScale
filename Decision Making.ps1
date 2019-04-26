@@ -49,6 +49,10 @@ $businessCloseTime = $configInfo.businessCloseTime
 $outOfHoursMachines = $configInfo.outOfHoursMachines
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling 
+$farmCPUThreshhold = $configInfo.farmCPUThreshhold
+$farmMemoryThreshhold = $configInfo.farmMemoryThreshhold
+$farmIndexThreshhold = $configInfo.farmIndexThreshhold
+$farmSessionThreshhold = $configInfo.farmSessionThreshhold
 $logLocation = $configInfo.logLocation 
 $LogNumberOfDays = $configInfo.LogNumberOfDays #not implemented yet
 $LogMaxSize = $configInfo.LogMaxSize
@@ -59,6 +63,8 @@ $smtpSubject = $configInfo.smtpSubject
 $testingOnly = $configInfo.testingOnly
 $exclusionTag = $configInfo.exclusionTag
 $wmiServiceAccount = $configInfo.wmiServiceAccount
+
+#Check variables for any known issues
 
 #Get current date in correct format
 $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
@@ -312,6 +318,31 @@ Function levelCheck() {
         [ValidateNotNullOrEmpty()]      
         [int]$targetMachines
     )
+        #Perform some calculation for performance scaling
+        If ($machineScaling -eq "CPU") {
+            If ($($performanceOverall.overallCPU) -gt $farmCPUThreshhold) {
+                $scalingFactor = 1 
+                WriteLog -Path $logLocation -Message "CPU Threshhold of $farmCPUThreshhold is lower than current farm average of $($performanceOverall.overallCPU), we need to spin up an additional machine" -Level Info -Verbose   
+            }            
+        } elseif ($machineScaling -eq "Memory") {
+            If ($($performanceOverall.overallMemory) -gt $farmMemoryThreshhold) {
+                $scalingFactor = 1    
+                WriteLog -Path $logLocation -Message "Memory Threshhold of $farmMemoryThreshhold is lower than current farm average of $($performanceOverall.overallMemory), we need to spin up an additional machine" -Level Info -Verbose   
+            }
+        } elseif ($machineScaling -eq "Index") {
+            If ($($performanceOverall.overallIndex) -gt $farmIndexThreshhold) {
+                $scalingFactor = 1    
+                WriteLog -Path $logLocation -Message "Index Threshhold of $farmIndexThreshhold is lower than current farm average of $($performanceOverall.overallIndex), we need to spin up an additional machine" -Level Info -Verbose   
+            }
+        } elseif ($machineScaling -eq "Sessions") {
+                If ($($performanceOverall.overallSession) -gt $farmSessionThreshhold) {
+                    $scalingFactor = 1 
+                    WriteLog -Path $logLocation -Message "Session Threshhold of $farmSessionThreshhold is lower than current farm average of $($performanceOverall.overallSession), we need to spin up an additional machine" -Level Info -Verbose      
+                }
+        } else {
+            WriteLog -Path $logLocation -Message "There is an error in the config for the machine scaling variable as no case was recognised for sclaing - current variable = $machineScaling" -Level Error -Verbose
+        }
+    
         #Check the supplied machines levels against what is required
         #Return an object with the action required (Startup, Shutdown, Nothing and the amount of machines necessary to do it to)
         If ($currentMachines -gt $targetMachines) {
@@ -332,6 +363,7 @@ Function levelCheck() {
                 Number = 0
             }
             WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to perform Scaling calculations" -Level Info -Verbose
+            
         }        
         Return $action
 }
