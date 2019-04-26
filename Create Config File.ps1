@@ -9,7 +9,11 @@ $businessStartTime =  "06:00"                                                   
 $businessCloseTime = "18:00"                                                                #End time of the business
 $outOfHoursMachines = "0"                                                                   #How many machines should be powered on during the weekends
 $inHoursMachines = "2"                                                                      #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
-$machineScaling = "Schedule"                                                                #Options are (Schedule, CPU, Memory, Index or Sessions)
+$machineScaling = "CPU"                                                                     #Options are (Schedule, CPU, Memory, Index or Sessions)
+$farmCPUThreshhold = "90"                                                                   #Farm CPU threshhold average ex: 90 = 90% CPU across the farm on average
+$farmMemoryThreshhold = "90"                                                                #Farm memory threshhold average ex: 90 = 90% memory used across the farm on average
+$farmIndexThreshhold = "5000"                                                               #Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm
+$farmSessionThreshhold = "20"                                                               #Farm Session threshhold average ex: 20 = An average of 20 users on each server
 $LogNumberOfDays = 7                                                                        #Days to rotate the logs after
 $LogMaxSize = 100                                                                           #Max Log size
 $logLocation = "C:\Users\leee.jeffries\Documents\GitHub\PowerScale\PowerScale_Log.log"      #Log file location
@@ -49,6 +53,14 @@ $configContent = [PSCustomObject]@{
     inHoursMachines = $inHoursMachines
     machineScalingComment = "Options are (CPU, Memory, Index or Sessions)"
     machineScaling = $machineScaling
+    farmCPUThreshhold = $farmCPUThreshhold
+    farmCPUThreshholdComment = "Farm CPU threshhold average ex: 90 = 90% CPU across the farm on average"
+    farmMemoryThreshhold = $farmMemoryThreshhold
+    farmMemoryThreshholdComment = "Farm memory threshhold average ex: 90 = 90% memory used across the farm on average"
+    farmIndexThreshhold = $farmIndexThreshhold
+    farmIndexThreshholdComment = "Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm"
+    farmSessionThreshhold = $farmSessionThreshhold
+    farmSessionThreshholdComment = "Farm Session threshhold average ex: 20 = An average of 20 users on each server"
     LogMaxSizeComment = "Max Log size"
     LogMaxSize = $LogMaxSize
     LogNumberOfDaysComment = "Days to rotate the logs after"
