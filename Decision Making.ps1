@@ -598,6 +598,8 @@ try {
     performanceAnalysis -citrixController $citrixController -machinePrefix $machinePrefix -performanceSamples $performanceSamples -performanceInterval $performanceInterval -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
 } catch {
     WriteLog -Path $logLocation -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and WMI. " -Level Error
+    #Log out the latest error - does not mean performance measurement was unsuccessful
+    WriteLog -Path $logLocation -Message "$Error[$($Error.Count)]" -Level Error
     Exit-PSSession
 }
 try {
