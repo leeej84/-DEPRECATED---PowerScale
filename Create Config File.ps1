@@ -20,7 +20,7 @@ $smtpSubject = "PowerScale"                                                     
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
 $exclusionTag = "excluded"                                                                  #Tag in Studio to ensure a machine is discounted from calculations
 $wmiServiceAccount = "jeffrl-p"                                                             #WMI Service Account Name
-$wmiServicePassword = "NewPassword789!"                                                     #WMI Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
+$wmiServicePassword = ""                                                                    #WMI Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
           
 #Tag to assign in Studio to exclude a machine from scaling operations
 
@@ -65,6 +65,8 @@ $configContent = [PSCustomObject]@{
     smtpSubject = $smtpSubject
     exclusionTag = $exclusionTag
     exclusionTagComment = "Tag to assign in Studio to exclude a machine from scaling operations"
+    wmiServiceAccount = $wmiServiceAccount
+    wmiServiceAccountComment = "WMI Service Account Name"
     testingOnlyComment = "Debugging value, will only write out to the log "
     testingOnly = $testingOnly
 }
