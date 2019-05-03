@@ -37,7 +37,6 @@ function WMIDetailsImport () {
 $configInfo = configurationImport
 
 #Set all variables for the script
-$performanceScriptLocation = $configInfo.performanceScriptLocation 
 $performanceIndividual = $configInfo.performanceIndividual
 $performanceOverall = $configInfo.performanceOverall
 $performanceInterval = $configInfo.performanceSampleInterval
@@ -117,7 +116,7 @@ Function WriteLog() {
         # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path. 
         If (!(Test-Path $Path)) { 
             Write-Verbose "Creating $Path." 
-            $NewLogFile = New-Item $Path -Force -ItemType File 
+            New-Item $Path -Force -ItemType File 
             } 
  
         else { 
@@ -186,7 +185,7 @@ Function CircularLogging() {
         Do {
             Write-Verbose "Log file $Path is > $LogMaxSize, removing oldest log file" 
             #get all log files in the script folder that match LogTypeToProcess e.g. PowerShellLog, select the oldest one and remove it.
-            Get-ChildItem ($scriptpath+"\$LogTypeToProcess*.log") | Sort CreationTime | Select -First 1 | Remove-Item 
+            Get-ChildItem ($scriptpath+"\$LogTypeToProcess*.log") | Sort-Object CreationTime | Select-Object -First 1 | Remove-Item 
             #initialize log size total variable
             [int]$totalsize=0
             #get log file size and store in variable
@@ -289,7 +288,7 @@ Function IsWeekDay() {
     #Weekdays
     $weekdays = "Monday","Tuesday","Wednesday","Thursday","Friday"
     #See if the current day of the week sits inside of any other weekdays, returns true or false
-    $null -ne ($weekdays | ? { $($date.DayOfWeek) -match $_ })  # returns $true
+    $null -ne ($weekdays | Where-Object { $($date.DayOfWeek) -match $_ })  # returns $true
 }
 
 #Function to check if inside of business hours or outside to business hours
@@ -383,7 +382,7 @@ Function brokerMachineStates() {
         [string]$machinePrefix
     )
     
-    Return Get-BrokerMachine -AdminAddress $citrixController | Where {($_.DNSName -match $machinePrefix)}
+    Return Get-BrokerMachine -AdminAddress $citrixController | Where-Object {($_.DNSName -match $machinePrefix)}
 }
 
 #Function to get a list of all sessions and current state from Broker
@@ -404,9 +403,9 @@ Function brokerUserSessions() {
     )
     
     If (!$machineName) {
-        Return Get-BrokerSession -AdminAddress $citrixController -MaxRecordCount 10000 | Where {((($_.MachineName).Replace("\","\\")) -match $machinePrefix)}
+        Return Get-BrokerSession -AdminAddress $citrixController -MaxRecordCount 10000 | Where-Object {((($_.MachineName).Replace("\","\\")) -match $machinePrefix)}
     } else {
-        Return Get-BrokerSession -AdminAddress $citrixController -MaxRecordCount 10000 | Where {$_.MachineName -eq $machineName}
+        Return Get-BrokerSession -AdminAddress $citrixController -MaxRecordCount 10000 | Where-Object {$_.MachineName -eq $machineName}
     }
 }
 
@@ -602,10 +601,10 @@ ForEach ($computer in $computers) {
                 #Create a custom object to store the results
                 $results = [PSCustomObject]@{
                 Machine = $computer
-                CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-                Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-                LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand LoadIndex
-                Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand SessionCount
+                CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+                Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+                LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
+                Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
                 } 
                 
                 #Write out the results for this computer only if the CPU and Memory calculations worked
@@ -632,10 +631,10 @@ ForEach ($computer in $computers) {
         #Create a custom object to store the results
         $results = [PSCustomObject]@{
         Machine = $computer
-        CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-        Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | select -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-        LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand LoadIndex
-        Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where {$_.DNSName -eq $computer}) | Select -expand SessionCount
+        CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+        Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+        LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
+        Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
         } 
         
         #Write out the results for this computer only if the CPU and Memory calculations worked
@@ -653,8 +652,8 @@ ForEach ($computer in $computers) {
     
 #Loop through all running jobs every 5 seconds to see if complete, if they are; receive the jobs and store the metrics
 $Metrics = Do {
-    $runningJobs = Get-Job | Where {$_.State -ne "Completed"}
-    $completedJobs = Get-Job |  Where {$_.State -eq "Completed"}
+    $runningJobs = Get-Job | Where-Object {$_.State -ne "Completed"}
+    $completedJobs = Get-Job |  Where-Object {$_.State -eq "Completed"}
     ForEach ($job in $completedJobs) {
         Receive-Job $job | Select-Object * -ExcludeProperty RunspaceId 
         Remove-Job $job
@@ -713,11 +712,11 @@ try {
 }
 
 #Filter down the main objects into sub variables for scripting ease
-$disconnectedSessions = $allUserSessions | Select * | Where-Object {$_.SessionState -eq "Disconnected"}
-$activeSessions = $allUserSessions | Select * | Where-Object {$_.SessionState -eq "Active"}
-$machinesOnAndMaintenance = $allMachines | Select * | Where {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}
-$machinesOnAndNotMaintenance = $allMachines | Select * | Where {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
-$machinesPoweredOff = $allMachines | Select * | Where {($_.PowerState -eq "Off")}
+$disconnectedSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Disconnected"}
+$activeSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Active"}
+$machinesOnAndMaintenance = $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}
+$machinesOnAndNotMaintenance = $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
+$machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
 #########################Reset All Variables and Get All Metrics###################################
 
 #Main Logic 
@@ -746,7 +745,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
             sendMessage -citrixController $citrixController -firstMessageInterval 1 -secondMessageInterval 1 -sessions $activeSessions
         } 
         #For everymachine powered on up to the correct number, switch the poweroff
-        $machinesToPowerOff = $machinesOnAndNotMaintenance | Select -First $($action.number)
+        $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)
         foreach ($machine in $machinesToPowerOff) {
             brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff
         } 
@@ -757,10 +756,31 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         WriteLog -Path $logLocation -Message "It is currently inside working hours - performing machine analysis" -Level Info
         If ($action.Task -eq "Scaling") {            
             WriteLog -Path $logLocation -Message "The current running machines matches the target machines number, performing scaling analysis" -Level Info 
-            #Performance analysis handled by Performance check function
-            #Perform logic to make sure a machine is available
-            #Power on machines from scaling 
-            ####HERE####
+            if (($machinesPoweredOff -gt 0) -or ($null -ne $machinesPoweredOff)) {
+                WriteLog -Path $logLocation -Message "Scaling is have been activated, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.count) currently powered off" -Level Info
+                #Select a machine to be powered on
+                $machineToPowerOn = $machinesPoweredOff | Select-Object -First 1
+                WriteLog -Path $logLocation -Message "Machine selected to be powered on is $($machineToPowerOn.DNSName)" -Level Info
+                #Perform logic on scaling
+                if (($overallPerformance.overallCPU.Average -gt $farmCPUThreshhol) -and ($machineScaling -eq "CPU")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $machineToPowerOn.DNSName to power up, the CPU threshhold has been triggered." -Level Info
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                }
+                if ($overallPerformance.overallMemory.Average -gt $farmMemoryThreshhold -and ($machineScaling -eq "Memory")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $machineToPowerOn.DNSName to power up, the Memory threshhold has been triggered." -Level Info
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                }
+                if (($overallPerformance.overallIndex.Average -gt $farmIndexThreshhold) -and ($machineScaling -eq "Index")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $machineToPowerOn.DNSName to power up, the Index threshhold has been triggered." -Level Info
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                }
+                if (($overallPerformance.overallSession.Average -gt $farmSessionThreshhold) -and ($machineScaling -eq "Session")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $machineToPowerOn.DNSName to power up, the Session threshhold has been triggered." -Level Info
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                }
+            } else {
+                WriteLog -Path $logLocation -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
+            }
             $action.Number
             WriteLog -Path $logLocation -Message "Performance scaling advises $($action.Number) machines need to be powered on" -Level Info -NoClobber
                     
@@ -778,7 +798,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                     #The number of machines in maintenance mode will service the request
                     WriteLog -Path $logLocation -Message "The number of machines in maintenance mode is $($machinesOnAndMaintenance.RegistrationState.Count) and the number of machine(s) needed is $($action.number)" -Level Info
                     WriteLog -Path $logLocation -Message "There are sufficient machines in maintenance mode to service the request" -Level Info
-                    foreach ($machine in $($machinesOnAndMaintenance | Select -First $($action.number))) {
+                    foreach ($machine in $($machinesOnAndMaintenance | Select-Object -First $($action.number))) {
                         #Take machines out of maintenance mode
                         WriteLog -Path $logLocation -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
                         If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}
@@ -795,7 +815,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                         maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off
                     }
                     #Power on the machines we need by subtracting the machines already in maintenance mode from what is needed
-                    foreach ($machine in $machinesPoweredOff | Select -First $($($action.Number)-$($machinesOnAndMaintenance.RegistrationState.Count))) {
+                    foreach ($machine in $machinesPoweredOff | Select-Object -First $($($action.Number)-$($machinesOnAndMaintenance.RegistrationState.Count))) {
                         #Power machines on
                         WriteLog -Path $logLocation -Message "Turning On $($machine.DNSName)" -Level Info 
                         If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn}
@@ -846,7 +866,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
             sendMessage -citrixController $citrixController -firstMessageInterval 1 -secondMessageInterval 1 -sessions $activeSessions
         } 
         #For everymachine powered on up to the correct number, switch the poweroff
-        $machinesToPowerOff = $machinesOnAndNotMaintenance | Select -First $($action.number)
+        $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)
         foreach ($machine in $machinesToPowerOff) {
             brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff
         } 
