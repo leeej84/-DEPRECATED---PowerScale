@@ -72,7 +72,7 @@ $timesObj = [PSCustomObject]@{
     endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
     timeNow = $(Get-Date)
     #Set a specific time for testing
-    #timeNow = $([datetime]::ParseExact("03/04/19 11:00", "dd/MM/yy HH:mm", $null))
+    #timeNow = $([datetime]::ParseExact("13/05/19 20:00", "dd/MM/yy HH:mm", $null))
 }
 
 #Load Citrix Snap-ins
@@ -356,7 +356,7 @@ Function levelCheck() {
                 Number = $($targetMachines - $currentMachines)
             }
             WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
-        } elseif ($currentMachines -eq $targetMachines) {
+        } elseif ($currentMachines -ge $targetMachines) {
             $action = [PSCustomObject]@{        
                 Task = "Scaling"
                 Number = 0 + $scalingFactor
@@ -431,7 +431,7 @@ Function brokerAction() {
         [int]$delay        
     )
     #Check if a delay has been sent or not and execute the relevant command based on this
-    If ($delay) {
+    If (-not $null -eq $delay) {
         WriteLog -Path $logLocation -Message "Machine action for $machineName - $machineAction in $delay minutes" -Level Info
         If (!$testingOnly) {New-BrokerDelayedHostingPowerAction -AdminAddress $citrixcontroller -MachineName $machineName -Action $machineAction -Delay $(New-TimeSpan -Minutes $delay) }
     } else {
@@ -602,7 +602,7 @@ ForEach ($computer in $computers) {
                 $results = [PSCustomObject]@{
                 Machine = $computer
                 CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-                Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+                Memory = [int](Get-Counter -Counter '\Memory\% Committed Bytes In Use' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
                 LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
                 Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
                 } 
@@ -632,7 +632,7 @@ ForEach ($computer in $computers) {
         $results = [PSCustomObject]@{
         Machine = $computer
         CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-        Memory = [int](Get-Counter -Counter '\Memory\Available MBytes' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
+        Memory = [int](Get-Counter -Counter '\Memory\% Committed Bytes In Use' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
         LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
         Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
         } 
@@ -751,39 +751,36 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         } 
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
-        #Inside working hours, decide on what to do with current machines
+        #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
         $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         WriteLog -Path $logLocation -Message "It is currently inside working hours - performing machine analysis" -Level Info
         If ($action.Task -eq "Scaling") {            
             WriteLog -Path $logLocation -Message "The current running machines matches the target machines number, performing scaling analysis" -Level Info 
-            if (($machinesPoweredOff -gt 0) -or ($null -ne $machinesPoweredOff)) {
-                WriteLog -Path $logLocation -Message "Scaling is have been activated, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.count) currently powered off" -Level Info
+            if (($($machinesPoweredOff.Count) -gt 0) -or ($null -ne $($machinesPoweredOff.Count))) {
+                WriteLog -Path $logLocation -Message "Scaling has have been activated, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.count) machines currently powered off and available." -Level Info
                 #Select a machine to be powered on
                 $machineToPowerOn = $machinesPoweredOff | Select-Object -First 1
                 WriteLog -Path $logLocation -Message "Machine selected to be powered on is $($machineToPowerOn.DNSName)" -Level Info
                 #Perform logic on scaling
-                if (($overallPerformance.overallCPU.Average -gt $farmCPUThreshhol) -and ($machineScaling -eq "CPU")) {
-                    WriteLog -Path $logLocation -Message "Issuing a power command to $machineToPowerOn.DNSName to power up, the CPU threshhold has been triggered." -Level Info
+                if (($overallPerformance.overallCPU.Average -gt $farmCPUThreshhold) -and ($machineScaling -eq "CPU")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the CPU threshhold has been triggered." -Level Info
                     If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
                 }
-                if ($overallPerformance.overallMemory.Average -gt $farmMemoryThreshhold -and ($machineScaling -eq "Memory")) {
-                    WriteLog -Path $logLocation -Message "Issuing a power command to $machineToPowerOn.DNSName to power up, the Memory threshhold has been triggered." -Level Info
+                if (($overallPerformance.overallMemory.Average -gt $farmMemoryThreshhold) -and ($machineScaling -eq "Memory")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Memory threshhold has been triggered." -Level Info
                     If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
                 }
                 if (($overallPerformance.overallIndex.Average -gt $farmIndexThreshhold) -and ($machineScaling -eq "Index")) {
-                    WriteLog -Path $logLocation -Message "Issuing a power command to $machineToPowerOn.DNSName to power up, the Index threshhold has been triggered." -Level Info
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Index threshhold has been triggered." -Level Info
                     If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
                 }
                 if (($overallPerformance.overallSession.Average -gt $farmSessionThreshhold) -and ($machineScaling -eq "Session")) {
-                    WriteLog -Path $logLocation -Message "Issuing a power command to $machineToPowerOn.DNSName to power up, the Session threshhold has been triggered." -Level Info
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Session threshhold has been triggered." -Level Info
                     If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
                 }
             } else {
                 WriteLog -Path $logLocation -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
-            }
-            $action.Number
-            WriteLog -Path $logLocation -Message "Performance scaling advises $($action.Number) machines need to be powered on" -Level Info -NoClobber
-                    
+            }              
         } ElseIf ($action.Task -eq "Startup") {
             #Some machines to startup based on numbers returned
             WriteLog -Path $logLocation -Message "It is currently inside working hours, machines are required to be started" -Level Info
@@ -815,11 +812,10 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                         maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off
                     }
                     #Power on the machines we need by subtracting the machines already in maintenance mode from what is needed
-                    foreach ($machine in $machinesPoweredOff | Select-Object -First $($($action.Number)-$($machinesOnAndMaintenance.RegistrationState.Count))) {
+                    foreach ($machine in $($machinesPoweredOff | Select-Object -First $($($action.Number)-$($machinesOnAndMaintenance.RegistrationState.Count)))) {
                         #Power machines on
                         WriteLog -Path $logLocation -Message "Turning On $($machine.DNSName)" -Level Info 
                         If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn}
-                        brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn
                     }
                 }
 
