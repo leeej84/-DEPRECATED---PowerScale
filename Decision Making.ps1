@@ -70,9 +70,9 @@ $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
 $timesObj = [PSCustomObject]@{
     startTime = [datetime]::ParseExact($("$($dateNow) $($businessStartTime)"), "dd/MM/yy HH:mm", $null)
     endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
-    timeNow = $(Get-Date)
+    #timeNow = $(Get-Date)
     #Set a specific time for testing
-    #timeNow = $([datetime]::ParseExact("13/05/19 20:00", "dd/MM/yy HH:mm", $null))
+    timeNow = $([datetime]::ParseExact("13/05/19 09:00", "dd/MM/yy HH:mm", $null))
 }
 
 #Load Citrix Snap-ins
@@ -717,6 +717,12 @@ $activeSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionS
 $machinesOnAndMaintenance = $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}
 $machinesOnAndNotMaintenance = $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
 $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
+$machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
+
+#Create the broker tag for scaling if it doesn't exist
+If (-not (Get-BrokerTag -Name "Scaled-On")) {
+    New-BrokerTag "Scaled-On"
+}
 #########################Reset All Variables and Get All Metrics###################################
 
 #Main Logic 
@@ -765,18 +771,22 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                 if (($overallPerformance.overallCPU.Average -gt $farmCPUThreshhold) -and ($machineScaling -eq "CPU")) {
                     WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the CPU threshhold has been triggered." -Level Info
                     If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
                 }
                 if (($overallPerformance.overallMemory.Average -gt $farmMemoryThreshhold) -and ($machineScaling -eq "Memory")) {
                     WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Memory threshhold has been triggered." -Level Info
                     If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
                 }
                 if (($overallPerformance.overallIndex.Average -gt $farmIndexThreshhold) -and ($machineScaling -eq "Index")) {
                     WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Index threshhold has been triggered." -Level Info
                     If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
                 }
                 if (($overallPerformance.overallSession.Average -gt $farmSessionThreshhold) -and ($machineScaling -eq "Session")) {
                     WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Session threshhold has been triggered." -Level Info
                     If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
                 }
             } else {
                 WriteLog -Path $logLocation -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
@@ -798,8 +808,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                     foreach ($machine in $($machinesOnAndMaintenance | Select-Object -First $($action.number))) {
                         #Take machines out of maintenance mode
                         WriteLog -Path $logLocation -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
-                        If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}
-                        maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off
+                        If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}                        
                     }
                 } else {
                     #The number of machines in maintenance mode will not service the request, we need to power on machines too
@@ -808,8 +817,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                     foreach ($machine in $($machinesOnAndMaintenance)) {
                         #Take machines out of maintenance mode
                         WriteLog -Path $logLocation -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
-                        If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}
-                        maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off
+                        If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}                    
                     }
                     #Power on the machines we need by subtracting the machines already in maintenance mode from what is needed
                     foreach ($machine in $($machinesPoweredOff | Select-Object -First $($($action.Number)-$($machinesOnAndMaintenance.RegistrationState.Count)))) {
@@ -827,15 +835,13 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                 foreach ($machine in $machinesOnAndMaintenance) {
                     #Take machines out of maintenance mode
                     WriteLog -Path $logLocation -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
-                    If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}
-                    maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off
+                    If (!$testingOnly) {maintenance -citrixController $citrixController -machine $machine -maintenanceMode Off}                    
                 }
 
                 foreach ($machine in $machinesPoweredOff) {
                     #Power machines on
                     WriteLog -Path $logLocation -Message "Turning On $($machine.DNSName)" -Level Info 
-                    If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn}
-                    brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn
+                    If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn}                    
                 }
             }
         } 
