@@ -70,9 +70,9 @@ $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
 $timesObj = [PSCustomObject]@{
     startTime = [datetime]::ParseExact($("$($dateNow) $($businessStartTime)"), "dd/MM/yy HH:mm", $null)
     endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
-    #timeNow = $(Get-Date)
+    timeNow = $(Get-Date)
     #Set a specific time for testing
-    timeNow = $([datetime]::ParseExact("13/05/19 09:00", "dd/MM/yy HH:mm", $null))
+    #timeNow = $([datetime]::ParseExact("13/05/19 09:00", "dd/MM/yy HH:mm", $null))
 }
 
 #Load Citrix Snap-ins
@@ -586,6 +586,7 @@ ForEach ($computer in $computers) {
     #Check if we have a wmi account to use, if we do check access for each machine, otherwise run in current user context    
     If  (-not ([String]::IsNullOrEmpty($wmiServiceAccount))) {  
         #Only gather performance metrics for machines that we have WMI access to 
+        WriteLog -Path $logLocation -Message "Starting performance measurement job for $computer using specified credentials" -Level Info -Verbose
         If  ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer -Credential $(WMIDetailsImport))) {
             Start-Job -Name $computer -Credential $(WMIDetailsImport) -ScriptBlock {
                 param (
@@ -617,6 +618,7 @@ ForEach ($computer in $computers) {
             } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
         }
     } elseif ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer)) { 
+        WriteLog -Path $logLocation -Message "Starting performance measurement job for $computer using script run credentials" -Level Info -Verbose
         Start-Job -Name $computer -ScriptBlock {
         param (
         $computer,
@@ -682,6 +684,10 @@ $overallAverage | Export-Clixml -Path $overallExportLocation
 
 }
 
+#Log for script start
+WriteLog -Path $logLocation -Message "-" -Level Info -NoClobber
+WriteLog -Path $logLocation -Message "#######PowerScale script starting - Test mode value is $testingOnly#######" -Level Info
+
 #########################Reset All Variables and Get All Metrics###################################
 #Reset variables (to avoid different data from multiple script runs)
 $allMachines = ""
@@ -725,9 +731,7 @@ If (-not (Get-BrokerTag -Name "Scaled-On")) {
 }
 #########################Reset All Variables and Get All Metrics###################################
 
-#Main Logic 
-#Log for script start
-WriteLog -Path $logLocation -Message "#######PowerScale script starting - Test mode value is $testingOnly#######" -Level Info
+#Main Logic
 
 #Is it a weekday?
 If ($(IsWeekDay -date $($timesObj.timeNow))) {
@@ -766,7 +770,12 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                 WriteLog -Path $logLocation -Message "Scaling has have been activated, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.count) machines currently powered off and available." -Level Info
                 #Select a machine to be powered on
                 $machineToPowerOn = $machinesPoweredOff | Select-Object -First 1
-                WriteLog -Path $logLocation -Message "Machine selected to be powered on is $($machineToPowerOn.DNSName)" -Level Info
+                If ($null -eq $machineToPowerOn) {
+                    WriteLog -Path $logLocation -Message "There are no machines available to power on" -Level Info
+                } else {
+                    WriteLog -Path $logLocation -Message "Machine selected to be powered on is $($machineToPowerOn.DNSName)" -Level Info
+                }
+
                 #Perform logic on scaling
                 if (($overallPerformance.overallCPU.Average -gt $farmCPUThreshhold) -and ($machineScaling -eq "CPU")) {
                     WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the CPU threshhold has been triggered." -Level Info
