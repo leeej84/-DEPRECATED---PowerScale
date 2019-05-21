@@ -681,10 +681,10 @@ $overallAverage = [PSCustomObject]@{
 }
 
 $overallAverage | Export-Clixml -Path $overallExportLocation
-"$($overallAverage.overallCPU.Average) - Overall CPU Average"
-"$($overallAverage.overallMemory.Average) - Overall Memory Average"
-"$($overallAverage.overallIndex.Average) - Overall Session Index Average"
-"$($overallAverage.overallSession.Average) - Overall Session Count Average"
+WriteLog -Path $logLocation -Message "$($overallAverage.overallCPU.Average) - Overall CPU Average" -Level Info
+WriteLog -Path $logLocation -Message "$($overallAverage.overallMemory.Average) - Overall Memory Average" -Level Info
+WriteLog -Path $logLocation -Message "$($overallAverage.overallIndex.Average) - Overall Session Index Average" -Level Info
+WriteLog -Path $logLocation -Message "$($overallAverage.overallSession.Average) - Overall Session Count Average" -Level Info
 
 }
 
