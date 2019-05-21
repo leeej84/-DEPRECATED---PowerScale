@@ -165,8 +165,8 @@ Function CircularLogging() {
         [int]$NumberOfDays, 
 
         [Parameter(Mandatory=$true, HelpMessage = "The location of the logfile to be written to.")] 
-        [Alias('LogPath')] 
-        [string]$Path                
+        [Alias('LogsPath')] 
+        [string]$LogLocation
     ) 
  
     Begin 
@@ -176,7 +176,8 @@ Function CircularLogging() {
     } 
     Process 
     {   
-        WriteLog -Path $logPath -Message "Start Circular Log Management" -Level Info
+        $Path = Split-Path -Path $LogLocation
+        WriteLog -Path $LogLocation -Message "Start Circular Log Management" -Level Info
         #Get all log files in the log folder with .log extension, select the oldest ones past the specified retention number and remove them
         $files = Get-ChildItem ("$Path\*.log") | Sort-Object CreationTime
         #Check how many log files we have
@@ -186,10 +187,9 @@ Function CircularLogging() {
             $filesToRemove
             foreach ($file in $filesToRemove) {
                 $file | Remove-Item               
-                WriteLog -Path $logPath -Message "Log file removed $file" -Level Info
-            }
-            
-            WriteLog -Path $logPath -Message "Completed Circular Log Management" -Level Info
+                WriteLog -Path $LogLocation -Message "Log file removed $file" -Level Info
+            }            
+            WriteLog -Path $LogLocation -Message "Completed Circular Log Management" -Level Info
         }
     } 
         End 
@@ -737,7 +737,7 @@ If (-not (Get-BrokerTag -Name "Scaled-On")) {
 
 #Main Logic
 #Kick off Circular logging maintenance
-CircularLogging -NumberOfDays $LogNumberOfDays -Path $logLocation
+CircularLogging -NumberOfDays $LogNumberOfDays -LogLocation $logLocation
 
 #Is it a weekday?
 If ($(IsWeekDay -date $($timesObj.timeNow))) {
