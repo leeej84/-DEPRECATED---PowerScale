@@ -52,9 +52,13 @@ $farmCPUThreshhold = $configInfo.farmCPUThreshhold
 $farmMemoryThreshhold = $configInfo.farmMemoryThreshhold
 $farmIndexThreshhold = $configInfo.farmIndexThreshhold
 $farmSessionThreshhold = $configInfo.farmSessionThreshhold
+$LogNumberOfDays = $configInfo.LogNumberOfDays
 $logLocation = $configInfo.logLocation 
-$LogNumberOfDays = $configInfo.LogNumberOfDays #not implemented yet
-$LogMaxSize = $configInfo.LogMaxSize
+$forceUserLogoff = $config.forceUserLogoff    
+$userLogoffFirstInterval = $config.userLogoffFirstInterval
+$userLogoffFirstMessage = $config.userLogoffFirstMessage
+$userLogoffSecondInterval = $config.userLogoffSecondInterval
+$userLogoffSecondMessage = $config.userLogoffSecondMessage
 $smtpServer = $configInfo.smtpServer
 $smtpToAddress = $configInfo.smtpToAddress
 $smtpFromAddress = $configInfo.smtpFromAddress
@@ -500,9 +504,17 @@ Function sendMessage () {
         [ValidateNotNullOrEmpty()] 
         [int]$firstMessageInterval,
 
+        [Parameter(Mandatory=$true, HelpMessage = "Message one")]    
+        [ValidateNotNullOrEmpty()] 
+        [string]$firstMessage,
+
         [Parameter(Mandatory=$true, HelpMessage = "Message interval two")]    
         [ValidateNotNullOrEmpty()] 
         [int]$secondMessageInterval,
+
+        [Parameter(Mandatory=$true, HelpMessage = "Message one")]    
+        [ValidateNotNullOrEmpty()] 
+        [string]$secondMessage,
 
         [Parameter(Mandatory=$true, HelpMessage = "List of sessions to message")]    
         [ValidateNotNullOrEmpty()] 
@@ -511,13 +523,13 @@ Function sendMessage () {
     
     #Sending the initial message for users to logoff
     WriteLog -Path $logLocation -Message "Sending message to users to log off - $($firstMessageInterval) minute warning" -Level Info
-    If (!$testingOnly) {Send-BrokerSessionMessage -AdminAddress $citrixController -InputObject $sessions -MessageStyle "Information" -Title "ICT Server Scheduled Shutdown" -Text "Please save your work and log-off. This machine will be shutdown in $($firstMessageInterval) mins"}
+    If (!$testingOnly) {Send-BrokerSessionMessage -AdminAddress $citrixController -InputObject $sessions -MessageStyle "Information" -Title "Server Scheduled Shutdown" -Text "$firstMessage $(" - A reminder will be sent in $firstMessageInterval") mins"}
     #Wait for the interval time
     If (!$testingOnly) {start-sleep -seconds ($firstMessageInterval*60)}
 
     #Sending the initial message for users to logoff
     WriteLog -Path $logLocation -Message "Sending message to users to log off - $($secondMessageInterval) minute warning" -Level Info
-    If (!$testingOnly) {Send-BrokerSessionMessage -InputObject $sessions -MessageStyle "Critical" -Title "ICT Server Scheduled Shutdown " -Text "Please save your work and log-off. This machine will be shutdown in $($secondMessageInterval) min"}
+    If (!$testingOnly) {Send-BrokerSessionMessage -InputObject $sessions -MessageStyle "Critical" -Title "Server Scheduled Shutdown " -Text "$secondMessage $(" - Shutdown will occur in $secondMessageInterval") mins"}
     #Wait for the interval time
     If (!$testingOnly) {start-sleep -seconds ($secondMessageInterval*60)}
 
@@ -746,7 +758,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         }
         #Check if we have any active sessions and log send a message before logging off
         If ($(($activeSessions | Measure-Object).Count) -gt 0) {
-            sendMessage -citrixController $citrixController -firstMessageInterval 1 -secondMessageInterval 1 -sessions $activeSessions
+            sendMessage -citrixController $citrixController -firstMessageInterval $userLogoffFirstInterval -firstMessage $userLogoffFirstMessage -secondMessageInterval $userLogoffSecondInterval -secondMessage $userLogoffSecondMessage -sessions $activeSessions
         } 
         #For everymachine powered on up to the correct number, switch the poweroff
         $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)
