@@ -14,7 +14,6 @@ $farmMemoryThreshhold = "90"                                                    
 $farmIndexThreshhold = "5000"                                                               #Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm
 $farmSessionThreshhold = "20"                                                               #Farm Session threshhold average ex: 20 = An average of 20 users on each server
 $LogNumberOfDays = 7                                                                        #Days to rotate the logs after
-$LogMaxSize = 100                                                                           #Max Log size
 $logLocation = "C:\Users\leee.jeffries.ctxlab.000\OneDrive - Leee Jeffries\Source\PowerScale\PowerScale_Log.log"      #Log file location
 $smtpServer = "192.168.2.200"                                                                 #SMTP server address
 $smtpToAddress = "leee.jeffries@leeejeffries.com"                                            #Email address to send to
@@ -60,8 +59,6 @@ $configContent = [PSCustomObject]@{
     farmIndexThreshholdComment = "Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm"
     farmSessionThreshhold = $farmSessionThreshhold
     farmSessionThreshholdComment = "Farm Session threshhold average ex: 20 = An average of 20 users on each server"
-    LogMaxSizeComment = "Max Log size"
-    LogMaxSize = $LogMaxSize
     LogNumberOfDaysComment = "Days to rotate the logs after"
     LogNumberOfDays = $LogNumberOfDays 
     logLocationComment = "Log file location"
