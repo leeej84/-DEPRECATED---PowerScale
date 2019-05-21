@@ -751,20 +751,36 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
             WriteLog -Path $logLocation -Message "The current running machines matches the target machines, we are outside of working hours so there is nothing to do" -Level Info
                    
         } ElseIf ($action.Task -eq "Shutdown") {
-        #Some machines to shutdown based on numbers returned
-        #Check if we have any disconnected sessions and log them off
-        If ($(($disconnectedSessions | Measure-Object).Count) -gt 0) {
-            sessionLogOff -citrixController $citrixController -sessions $disconnectedSessions
-        }
-        #Check if we have any active sessions and log send a message before logging off
-        If ($(($activeSessions | Measure-Object).Count) -gt 0) {
-            sendMessage -citrixController $citrixController -firstMessageInterval $userLogoffFirstInterval -firstMessage $userLogoffFirstMessage -secondMessageInterval $userLogoffSecondInterval -secondMessage $userLogoffSecondMessage -sessions $activeSessions
-        } 
-        #For everymachine powered on up to the correct number, switch the poweroff
-        $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)
-        foreach ($machine in $machinesToPowerOff) {
-            brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff
-        } 
+            #Some machines to shutdown based on numbers returned
+            #Check if we have any disconnected sessions and log them off
+            If ($(($disconnectedSessions | Measure-Object).Count) -gt 0) {
+                WriteLog -Path $logLocation -Message "Logging off all disconnected sessions" -Level Info
+                sessionLogOff -citrixController $citrixController -sessions $disconnectedSessions
+            }
+            #Check if we have any active sessions and log send a message before logging off if we are forcing user logoffs
+            If (($(($activeSessions | Measure-Object).Count) -gt 0) -and ($forceUserLogoff -eq $true)) {
+                WriteLog -Path $logLocation -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
+                sendMessage -citrixController $citrixController -firstMessageInterval $userLogoffFirstInterval -firstMessage $userLogoffFirstMessage -secondMessageInterval $userLogoffSecondInterval -secondMessage $userLogoffSecondMessage -sessions $activeSessions
+                $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)
+                #For everymachine powered on up to the correct number, switch the poweroff
+                foreach ($machine in $machinesToPowerOff) {
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff }
+                }
+            }
+            #If we are not forcing users to logoff then we can loop through machines checking for non-active sessions
+            If ($forceUserLogoff -eq $false) {
+                WriteLog -Path $logLocation -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
+                $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)                
+                foreach ($machine in $machinesToPowerOff) {
+                    #Check for active sessions on each machine before shutting down
+                    $sessions = $(brokerUserSessions -citrixController $citrixController -machineName $($machine.MachineName) | Where-Object {$_.SessionState -eq "Active"} | Select-Object *)
+                    If ($null -eq $sessions) {
+                        WriteLog -Path $logLocation -Message "No active session found on $($machineToPowerOn.DNSName), performing shutdown" -Level Info
+                        #Shutdown the machines as there are no active sessions (this will include disconnected sessions)
+                        If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff }
+                    }
+                }
+            }       
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
