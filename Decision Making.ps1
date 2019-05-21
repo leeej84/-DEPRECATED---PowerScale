@@ -158,21 +158,11 @@ Function CircularLogging() {
         [Parameter(Mandatory=$true, HelpMessage = "The number of days to keep logs of.")] 
         [ValidateNotNullOrEmpty()] 
         [Alias("LogNumberOfDays")] 
-        [int]$LogNumberOfDays=7, 
+        [int]$NumberOfDays, 
 
         [Parameter(Mandatory=$true, HelpMessage = "The location of the logfile to be written to.")] 
         [Alias('LogPath')] 
-        [string]$Path='C:\Logs\PowerShellLog', 
-         
-        [Parameter(Mandatory=$true, HelpMessage = "The maximum size of the log file in MB.")] 
-        [Alias('LogMaxSize')] 
-        [int]$LogMaxSize=100,
-
-        [Parameter(Mandatory=$true, HelpMessage = "Log type to process")] 
-        [ValidateNotNullOrEmpty()] 
-        [Alias("LogTypeToProcess")] 
-        [string]$LogTypeToProcess='PowerShellLog'
-                
+        [string]$Path                
     ) 
  
     Begin 
@@ -181,22 +171,24 @@ Function CircularLogging() {
         $VerbosePreference = 'Continue' 
     } 
     Process 
-    {          
-        Do {
-            Write-Verbose "Log file $Path is > $LogMaxSize, removing oldest log file" 
-            #get all log files in the script folder that match LogTypeToProcess e.g. PowerShellLog, select the oldest one and remove it.
-            Get-ChildItem ($scriptpath+"\$LogTypeToProcess*.log") | Sort-Object CreationTime | Select-Object -First 1 | Remove-Item 
-            #initialize log size total variable
-            [int]$totalsize=0
-            #get log file size and store in variable
-            Get-ChildItem ($scriptpath+"\$LogTypeToProcess*.log") | ForEach-Object {$totalsize=$totalsize+$_.Length}
+    {   
+        WriteLog -Path $logPath -Message "Start Circular Log Management" -Level Info
+        #Get all log files in the log folder with .log extension, select the oldest ones past the specified retention number and remove them
+        $files = Get-ChildItem ("$Path\*.log") | Sort-Object CreationTime
+        #Check how many log files we have
+        If ($files.count -gt 5) {
+            #Calculate files to remove
+            $filesToRemove = Get-ChildItem ("$Path\$LogTypeToProcess*.log") | Sort-Object CreationTime | Select-Object -First $($files.count - 5)
+            $filesToRemove
+            foreach ($file in $filesToRemove) {
+                $file | Remove-Item               
+                WriteLog -Path $logPath -Message "Log file removed $file" -Level Info
             }
-            #compare to LogMaxSize
-        While ($totalsize/1MB -gt $LogMaxSize)
-        WriteLog -Path $logLocation -Message "Performing Circular Log Management" -Level Info
-        
+            
+            WriteLog -Path $logPath -Message "Completed Circular Log Management" -Level Info
+        }
     } 
-    End 
+        End 
     { 
     } 
 }
@@ -732,6 +724,8 @@ If (-not (Get-BrokerTag -Name "Scaled-On")) {
 #########################Reset All Variables and Get All Metrics###################################
 
 #Main Logic
+#Kick off Circular logging maintenance
+CircularLogging -NumberOfDays $LogNumberOfDays -Path $logLocation
 
 #Is it a weekday?
 If ($(IsWeekDay -date $($timesObj.timeNow))) {
