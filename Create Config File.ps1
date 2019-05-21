@@ -2,8 +2,8 @@ $performanceIndividual = "Individual.xml"                                       
 $performanceOverAll = "Overall.xml"                                                         #Overall machine performance XML
 $performanceSampleInterval = "1"                                                            #Interval of time to wait between samples
 $performanceSamples = "1"                                                                   #Number of performance samples to gather
-$citrixController = "XDDC-01.ctxlab.local"                                           #Citrix controller name or IP
-$machinePrefix = "XDSHNP"                                                                #Machine name prefix to include
+$citrixController = "XDDC-01.ctxlab.local"                                                  #Citrix controller name or IP
+$machinePrefix = "XDSHNP"                                                                   #Machine name prefix to include
 $businessStartTime =  "06:00"                                                               #Start time of the business
 $businessCloseTime = "18:00"                                                                #End time of the business
 $outOfHoursMachines = "0"                                                                   #How many machines should be powered on during the weekends
@@ -15,17 +15,20 @@ $farmIndexThreshhold = "5000"                                                   
 $farmSessionThreshhold = "20"                                                               #Farm Session threshhold average ex: 20 = An average of 20 users on each server
 $LogNumberOfDays = 7                                                                        #Days to rotate the logs after
 $logLocation = "C:\Users\leee.jeffries.ctxlab.000\OneDrive - Leee Jeffries\Source\PowerScale\PowerScale_Log.log"      #Log file location
-$smtpServer = "192.168.2.200"                                                                 #SMTP server address
-$smtpToAddress = "leee.jeffries@leeejeffries.com"                                            #Email address to send to
-$smtpFromAddress = "leee.jeffries@leeejeffries.com"                                                 #Email address mails will come from
+$forceUserLogoff = $true                                                                    #Force user sessions to be logged off out of hours or allow user sessions to drain
+$userLogoffFirstInterval = "1"                                                              #Initial logoff message interval if forcing user logoff in minutes
+$userLogoffFirstMessage = "This server will be shutdown outside of working hours, please save your work and logoff"   #Initial logoff message 
+$userLogoffSecondInterval = "1"                                                             #Second logoff message interval if forcing user logoff in minutes
+$userLogoffSecondMessage = "This server will be shutdown shortly, please save your work and logoff as soon as possible"  #Second logoff message 
+$smtpServer = "192.168.2.200"                                                               #SMTP server address
+$smtpToAddress = "leee.jeffries@leeejeffries.com"                                           #Email address to send to
+$smtpFromAddress = "leee.jeffries@leeejeffries.com"                                         #Email address mails will come from
 $smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
 $exclusionTag = "excluded"                                                                  #Tag in Studio to ensure a machine is discounted from calculations
-$wmiServiceAccount = "ctxlab.local\administrator"                                             #WMI Service Account Name - must include UPN or domain\username
+$wmiServiceAccount = "ctxlab.local\administrator"                                           #WMI Service Account Name - must include UPN or domain\username
 $wmiServicePassword = ""                                                                    #WMI Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
-          
-#Tag to assign in Studio to exclude a machine from scaling operations
-
+        
 $configContent = [PSCustomObject]@{ 
     performanceScriptLocationComment = "Performance gathering script location"
     performanceScriptLocation = $performanceScriptLocation
@@ -63,6 +66,16 @@ $configContent = [PSCustomObject]@{
     LogNumberOfDays = $LogNumberOfDays 
     logLocationComment = "Log file location"
     logLocation = $logLocation
+    forceUserLogoffComment = "Force user sessions to be logged off out of hours or allow user sessions to drain"
+    forceUserLogoff = $forceUserLogoff
+    userLogoffFirstIntervalComment = "Initial logoff message interval if forcing user logoff in minutes"
+    userLogoffFirstInterval = $userLogoffFirstInterval                                                                         
+    userLogoffFirstMessageComment = "Initial logoff message to user"
+    userLogoffFirstMessage = $userLogoffFirstMessage
+    userLogoffSecondIntervalComment = "Second logoff message interval if forcing user logoff in minutes"
+    userLogoffSecondInterval = $userLogoffSecondInterval                                                                         
+    userLogoffSecondMessageComment = "Second logoff message to user"
+    userLogoffSecondMessage = $userLogoffSecondMessage 
     smtpServerComment = "SMTP server address"
     smtpServer = $smtpServer
     smtpToAddressComment = "Email address to send to"
