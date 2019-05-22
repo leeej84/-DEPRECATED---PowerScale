@@ -652,7 +652,7 @@ ForEach ($computer in $computers) {
     
         } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
     } else {
-        WriteLog -Path $logLocation -Message "There has been an error connecting to any machines to gather performance metrics" -Level Error -Verbose
+        WriteLog -Path $logLocation -Message "There has been an error connecting to $computer to gather performance metrics" -Level Error -Verbose
     }
 }
     
