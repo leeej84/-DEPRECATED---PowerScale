@@ -754,6 +754,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                 $machineToPowerOn = $machinesPoweredOff | Select-Object -First 1
                 If ($null -eq $machineToPowerOn) {
                     WriteLog -Path $logLocation -Message "There are no machines available to power on" -Level Info
+                    WriteLog -Path $logLocation -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
                 } else {
                     WriteLog -Path $logLocation -Message "Machine selected to be powered on is $($machineToPowerOn.DNSName)" -Level Info
                     #Perform logic on scaling
@@ -776,8 +777,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                         WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Session threshhold has been triggered." -Level Info
                         If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
                         If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
-                    }                    
-                    WriteLog -Path $logLocation -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
+                    }   
                 }
             }       
         } ElseIf ($action.Task -eq "Shutdown") {
