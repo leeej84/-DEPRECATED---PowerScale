@@ -745,11 +745,41 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Path $logLocation -Message "It is currently outside working hours - performing machine analysis" -Level Info
-        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
-        
+        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count        
         If ($action.Task -eq "Scaling") {
-            WriteLog -Path $logLocation -Message "The current running machines matches the target machines, we are outside of working hours so there is nothing to do" -Level Info
-                   
+            WriteLog -Path $logLocation -Message "The current running machines matches the target machines, we are outside of working hours we will only scale up new machines based on performance" -Level Info
+            if (($($machinesPoweredOff.MachineName.Count) -gt 0) -or ($null -ne $($machinesPoweredOff.MachineName.Count))) {
+                WriteLog -Path $logLocation -Message "Scaling has have been activated, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.machineName.count) machines currently powered off and available." -Level Info
+                #Select a machine to be powered on
+                $machineToPowerOn = $machinesPoweredOff | Select-Object -First 1
+                If ($null -eq $machineToPowerOn) {
+                    WriteLog -Path $logLocation -Message "There are no machines available to power on" -Level Info
+                } else {
+                    WriteLog -Path $logLocation -Message "Machine selected to be powered on is $($machineToPowerOn.DNSName)" -Level Info
+                    #Perform logic on scaling
+                    if (($overallPerformance.overallCPU.Average -gt $farmCPUThreshhold) -and ($machineScaling -eq "CPU")) {
+                        WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the CPU threshhold has been triggered." -Level Info
+                        If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                        If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                    }
+                    if (($overallPerformance.overallMemory.Average -gt $farmMemoryThreshhold) -and ($machineScaling -eq "Memory")) {
+                        WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Memory threshhold has been triggered." -Level Info
+                        If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                        If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                    }
+                    if (($overallPerformance.overallIndex.Average -gt $farmIndexThreshhold) -and ($machineScaling -eq "Index")) {
+                        WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Index threshhold has been triggered." -Level Info
+                        If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                        If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                    }
+                    if (($overallPerformance.overallSession.Average -gt $farmSessionThreshhold) -and ($machineScaling -eq "Session")) {
+                        WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Session threshhold has been triggered." -Level Info
+                        If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                        If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                    }                    
+                    WriteLog -Path $logLocation -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
+                }
+            }       
         } ElseIf ($action.Task -eq "Shutdown") {
             #Some machines to shutdown based on numbers returned
             #Check if we have any disconnected sessions and log them off
@@ -901,22 +931,70 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
     $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.count
     
     If ($action.Task -eq "Scaling") {
-        WriteLog -Path $logLocation -Message "The current running machines matches the target machines, we are outside of working hours so there is nothing to do" -Level Info
-    
+        WriteLog -Path $logLocation -Message "The current running machines matches the target machines number, performing scaling analysis" -Level Info 
+        if (($($machinesPoweredOff.MachineName.Count) -gt 0) -or ($null -ne $($machinesPoweredOff.MachineName.Count))) {
+            WriteLog -Path $logLocation -Message "Scaling has have been activated, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.machineName.count) machines currently powered off and available." -Level Info
+            #Select a machine to be powered on
+            $machineToPowerOn = $machinesPoweredOff | Select-Object -First 1
+            If ($null -eq $machineToPowerOn) {
+                WriteLog -Path $logLocation -Message "There are no machines available to power on" -Level Info
+            } else {
+                WriteLog -Path $logLocation -Message "Machine selected to be powered on is $($machineToPowerOn.DNSName)" -Level Info
+
+                #Perform logic on scaling
+                if (($overallPerformance.overallCPU.Average -gt $farmCPUThreshhold) -and ($machineScaling -eq "CPU")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the CPU threshhold has been triggered." -Level Info
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                }
+                if (($overallPerformance.overallMemory.Average -gt $farmMemoryThreshhold) -and ($machineScaling -eq "Memory")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Memory threshhold has been triggered." -Level Info
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                }
+                if (($overallPerformance.overallIndex.Average -gt $farmIndexThreshhold) -and ($machineScaling -eq "Index")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Index threshhold has been triggered." -Level Info
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                }
+                if (($overallPerformance.overallSession.Average -gt $farmSessionThreshhold) -and ($machineScaling -eq "Session")) {
+                    WriteLog -Path $logLocation -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Session threshhold has been triggered." -Level Info
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                }                    
+                WriteLog -Path $logLocation -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
+            }
+        }    
     } ElseIf ($action.Task -eq "Shutdown") {
         #Some machines to shutdown based on numbers returned
         #Check if we have any disconnected sessions and log them off
         If ($(($disconnectedSessions | Measure-Object).Count) -gt 0) {
+            WriteLog -Path $logLocation -Message "Logging off all disconnected sessions" -Level Info
             sessionLogOff -citrixController $citrixController -sessions $disconnectedSessions
         }
-        #Check if we have any active sessions and log send a message before logging off
-        If ($(($activeSessions | Measure-Object).Count) -gt 0) {
-            sendMessage -citrixController $citrixController -firstMessageInterval 1 -secondMessageInterval 1 -sessions $activeSessions
-        } 
-        #For everymachine powered on up to the correct number, switch the poweroff
-        $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)
-        foreach ($machine in $machinesToPowerOff) {
-            brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff
+        #Check if we have any active sessions and log send a message before logging off if we are forcing user logoffs
+        If ($forceUserLogoff) {
+            WriteLog -Path $logLocation -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
+            sendMessage -citrixController $citrixController -firstMessageInterval $userLogoffFirstInterval -firstMessage $userLogoffFirstMessage -secondMessageInterval $userLogoffSecondInterval -secondMessage $userLogoffSecondMessage -sessions $activeSessions
+            $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)
+            #For everymachine powered on up to the correct number, switch the poweroff
+            foreach ($machine in $machinesToPowerOff) {
+                If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff }
+            }
+        }
+        #If we are not forcing users to logoff then we can loop through machines checking for non-active sessions
+        If (!$forceUserLogoff) {
+            WriteLog -Path $logLocation -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
+            $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)                
+            foreach ($machine in $machinesToPowerOff) {
+                #Check for active sessions on each machine before shutting down
+                $sessions = $(brokerUserSessions -citrixController $citrixController -machineName $($machine.MachineName) | Where-Object {$_.SessionState -eq "Active"} | Select-Object *)
+                If ($null -eq $sessions) {
+                    WriteLog -Path $logLocation -Message "No active session found on $($machine.DNSName), performing shutdown" -Level Info
+                    #Shutdown the machines as there are no active sessions (this will include disconnected sessions)
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff }
+                }
+            }
         } 
     }
 }
