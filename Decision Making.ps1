@@ -790,7 +790,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         If ($action.Task -eq "Scaling") {            
             WriteLog -Path $logLocation -Message "The current running machines matches the target machines number, performing scaling analysis" -Level Info 
             if (($($machinesPoweredOff.MachineName.Count) -gt 0) -or ($null -ne $($machinesPoweredOff.MachineName.Count))) {
-                WriteLog -Path $logLocation -Message "Scaling has have been activated, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.count) machines currently powered off and available." -Level Info
+                WriteLog -Path $logLocation -Message "Scaling has have been activated, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.machineName.count) machines currently powered off and available." -Level Info
                 #Select a machine to be powered on
                 $machineToPowerOn = $machinesPoweredOff | Select-Object -First 1
                 If ($null -eq $machineToPowerOn) {
