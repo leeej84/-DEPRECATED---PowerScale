@@ -890,7 +890,6 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                 }
             }              
         }
-    } 
     } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
         #There has been an error just comparing the date
         WriteLog -Path $logLocation -Message "There has been an error calculating the date or time, review the logs" -Level Error
