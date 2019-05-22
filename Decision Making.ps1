@@ -704,21 +704,21 @@ try {
     WriteLog -Path $logLocation -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and WMI. " -Level Error
     #Log out the latest error - does not mean performance measurement was unsuccessful on all machines
     WriteLog -Path $logLocation -Message "$Error[$($Error.Count)]" -Level Error
-    Exit-PSSession
+    Exit
 }
 try {
     $allMachines = brokerMachineStates -citrixController $citrixController -machinePrefix $machinePrefix | Where-Object {$_.Tags -notcontains $exclusionTag}
     $allUserSessions = brokerUserSessions -citrixController $citrixController -machinePrefix $machinePrefix | Where-Object {$_.Tags -notcontains $exclusionTag}
 } catch {
     WriteLog -Path $logLocation -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
-    Exit-PSSession
+    Exit
 }
 try {
     $individualPerformance = Import-cliXml -Path "$ScriptPath\Individual.xml"
     $overallPerformance = Import-cliXml -Path "$ScriptPath\Overall.xml"
 } catch {
     WriteLog -Path $logLocation -Message "There was an error generating and then importing the performance data, please ensure the performance script can run standalone using parameters." -Level Error
-    Exit-PSSession
+    Exit
 }
 
 #Filter down the main objects into sub variables for scripting ease
@@ -758,7 +758,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                 sessionLogOff -citrixController $citrixController -sessions $disconnectedSessions
             }
             #Check if we have any active sessions and log send a message before logging off if we are forcing user logoffs
-            If (($(($activeSessions | Measure-Object).Count) -gt 0) -and ($forceUserLogoff -eq $true)) {
+            If ($forceUserLogoff) {
                 WriteLog -Path $logLocation -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
                 sendMessage -citrixController $citrixController -firstMessageInterval $userLogoffFirstInterval -firstMessage $userLogoffFirstMessage -secondMessageInterval $userLogoffSecondInterval -secondMessage $userLogoffSecondMessage -sessions $activeSessions
                 $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)
@@ -768,7 +768,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                 }
             }
             #If we are not forcing users to logoff then we can loop through machines checking for non-active sessions
-            If ($forceUserLogoff -eq $false) {
+            If (!$forceUserLogoff) {
                 WriteLog -Path $logLocation -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
                 $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)                
                 foreach ($machine in $machinesToPowerOff) {
