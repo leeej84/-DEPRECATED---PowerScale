@@ -730,7 +730,7 @@ $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerSt
 $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
 
 #Create the broker tag for scaling if it doesn't exist
-If (-not (Get-BrokerTag -Name "Scaled-On")) {
+If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController )) {
     New-BrokerTag "Scaled-On"
 }
 #########################Reset All Variables and Get All Metrics###################################
@@ -915,7 +915,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                     WriteLog -Path $logLocation -Message "No active session found on $($machine.DNSName), performing shutdown" -Level Info
                     #Shutdown the machines as there are no sessions active or disconnected
                     If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff }
-                    If (!$null -eq $(Get-BrokerTag -Name "Scaled-On" -AdminAddress UKSCTXXAC01 -MachineUid $machine.Uid -AdminAddress $citrixController)) {
+                    If (!$null -eq $(Get-BrokerTag -Name "Scaled-On" -MachineUid $machine.Uid -AdminAddress $citrixController)) {
                         If (!$testingOnly) { Remove-BrokerTag -Name "Scaled-On" -Machine $machine.MachineName -AdminAddress $citrixController }
                     }
                 }
