@@ -340,7 +340,7 @@ Function levelCheck() {
     
         #Check the supplied machines levels against what is required
         #Return an object with the action required (Startup, Shutdown, Nothing and the amount of machines necessary to do it to)
-        If ($currentMachines -gt $targetMachines) {
+        If (($currentMachines -gt $targetMachines) -and ($scalingFactor -eq 0)) {
             $action = [PSCustomObject]@{        
                 Task = "Shutdown"
                 Number = $($currentMachines - $targetMachines)
@@ -352,7 +352,7 @@ Function levelCheck() {
                 Number = $($targetMachines - $currentMachines)
             }
             WriteLog -Path $logLocation -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
-        } elseif ($currentMachines -ge $targetMachines) {
+        } elseif (($currentMachines -ge $targetMachines)) {
             $action = [PSCustomObject]@{        
                 Task = "Scaling"
                 Number = 0 + $scalingFactor
@@ -696,6 +696,7 @@ WriteLog -Path $logLocation -Message "#######PowerScale script starting - Test m
 #Reset variables (to avoid different data from multiple script runs)
 $allMachines = ""
 $allUserSessions = ""
+$performanceTriggered = $false
 
 #Run the performance monitoring script to create XML files
 try {
@@ -775,7 +776,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                     #Check for active sessions on each machine before shutting down
                     $sessions = $(brokerUserSessions -citrixController $citrixController -machineName $($machine.MachineName) | Where-Object {$_.SessionState -eq "Active"} | Select-Object *)
                     If ($null -eq $sessions) {
-                        WriteLog -Path $logLocation -Message "No active session found on $($machineToPowerOn.DNSName), performing shutdown" -Level Info
+                        WriteLog -Path $logLocation -Message "No active session found on $($machine.DNSName), performing shutdown" -Level Info
                         #Shutdown the machines as there are no active sessions (this will include disconnected sessions)
                         If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff }
                     }
@@ -783,7 +784,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
             }       
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
-        #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
+        #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered       
         $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         WriteLog -Path $logLocation -Message "It is currently inside working hours - performing machine analysis" -Level Info
         If ($action.Task -eq "Scaling") {            
@@ -875,7 +876,21 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                     If (!$testingOnly) {brokerAction -citrixController $citrixController -machineName $machine.MachineName -machineAction TurnOn}                    
                 }
             }
-        } 
+        } ElseIf ($action.Task -eq "Shutdown") {
+            #We need to powerdown during production hours         
+            #We are not forcing users to logoff so we can loop through machines checking for 0 sessions
+            WriteLog -Path $logLocation -Message "We are in production hours, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
+            foreach ($machine in $machinesOnAndNotMaintenance) {
+                #Check for any sessions on each machine before shutting down
+                $sessions = $(brokerUserSessions -citrixController $citrixController -machineName $($machine.MachineName) | Select-Object *)
+                If ($null -eq $sessions) {
+                    WriteLog -Path $logLocation -Message "No active session found on $($machine.DNSName), performing shutdown" -Level Info
+                    #Shutdown the machines as there are no sessions active or disconnected
+                    If (!$testingOnly) { brokerAction -citrixController $citrixController -machineName $($machine.MachineName) -machineAction TurnOff }
+                }
+            }              
+        }
+    } 
     } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
         #There has been an error just comparing the date
         WriteLog -Path $logLocation -Message "There has been an error calculating the date or time, review the logs" -Level Error
