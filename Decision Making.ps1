@@ -12,6 +12,7 @@
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 $scriptPath
 
+
 #Function to pull in configuration information from the config file
 Function configurationImport () {
     If (Test-Path ("$scriptPath\config.xml")) {
@@ -730,7 +731,7 @@ $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerSt
 $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
 
 #Create the broker tag for scaling if it doesn't exist
-If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController )) {
+If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController)) {
     New-BrokerTag "Scaled-On"
 }
 #########################Reset All Variables and Get All Metrics###################################
@@ -908,7 +909,8 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
             #We need to powerdown during production hours         
             #We are not forcing users to logoff so we can loop through machines checking for 0 sessions
             WriteLog -Path $logLocation -Message "We are in production hours, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
-            foreach ($machine in $machinesOnAndNotMaintenance) {
+            $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($action.number)   
+            foreach ($machine in $machinesToPowerOff) {
                 #Check for any sessions on each machine before shutting down
                 $sessions = $(brokerUserSessions -citrixController $citrixController -machineName $($machine.MachineName) | Select-Object *)
                 If ($null -eq $sessions) {
