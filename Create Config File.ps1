@@ -3,7 +3,7 @@ $performanceOverAll = "Overall.xml"                                             
 $performanceScaling = $false                                                                #Performance scaling to be turned on or off (true or false)
 $performanceSampleInterval = "1"                                                            #Interval of time to wait between samples
 $performanceSamples = "1"                                                                   #Number of performance samples to gather
-$citrixController = "XDDC-01.ctxlab.local"                                                  #Citrix controller name or IP
+$citrixController = ""                                                                      #Citrix controller name or IP
 $machinePrefix = "XDSHNP"                                                                   #Machine name prefix to include
 $businessStartTime =  "06:00"                                                               #Start time of the business
 $businessCloseTime = "18:00"                                                                #End time of the business
@@ -15,19 +15,19 @@ $farmMemoryThreshhold = "90"                                                    
 $farmIndexThreshhold = "5000"                                                               #Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm
 $farmSessionThreshhold = "20"                                                               #Farm Session threshhold average ex: 20 = An average of 20 users on each server
 $LogNumberOfDays = 7                                                                        #Days to rotate the logs after
-$logLocation = "C:\Users\leee.jeffries.ctxlab.000\OneDrive - Leee Jeffries\Source\PowerScale\PowerScale_Log.log"      #Log file location
+$logLocation = "C:\Powerscale\PowerScale_Log.log"                                           #Log file location
 $forceUserLogoff = $true                                                                    #Force user sessions to be logged off out of hours or allow user sessions to drain
 $userLogoffFirstInterval = "1"                                                              #Initial logoff message interval if forcing user logoff in minutes
 $userLogoffFirstMessage = "This server will be shutdown outside of working hours, please save your work and logoff"   #Initial logoff message 
 $userLogoffSecondInterval = "1"                                                             #Second logoff message interval if forcing user logoff in minutes
 $userLogoffSecondMessage = "This server will be shutdown shortly, please save your work and logoff as soon as possible"  #Second logoff message 
-$smtpServer = "192.168.2.200"                                                               #SMTP server address
-$smtpToAddress = "leee.jeffries@leeejeffries.com"                                           #Email address to send to
-$smtpFromAddress = "leee.jeffries@leeejeffries.com"                                         #Email address mails will come from
+$smtpServer = ""                                                                            #SMTP server address
+$smtpToAddress = ""                                                                         #Email address to send to
+$smtpFromAddress = ""                                                                       #Email address mails will come from
 $smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
 $exclusionTag = "excluded"                                                                  #Tag in Studio to ensure a machine is discounted from calculations
-$wmiServiceAccount = "ctxlab.local\administrator"                                           #WMI Service Account Name - must include UPN or domain\username
+$wmiServiceAccount = ""                                                                     #WMI Service Account Name - must include UPN or domain\username
 $wmiServicePassword = ""                                                                    #WMI Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
         
 $configContent = [PSCustomObject]@{ 
