@@ -1,19 +1,19 @@
 $performanceIndividual = "Individual.xml"                                                   #Individual machine performance XML
 $performanceOverAll = "Overall.xml"                                                         #Overall machine performance XML
-$performanceScaling = $false                                                                #Performance scaling to be turned on or off (true or false)
+$performanceScaling = $true                                                                #Performance scaling to be turned on or off (true or false)
 $performanceSampleInterval = "1"                                                            #Interval of time to wait between samples
 $performanceSamples = "1"                                                                   #Number of performance samples to gather
 $citrixController = "XDDC-01.ctxlab.local"                                                  #Citrix controller name or IP
 $machinePrefix = "XDSHNP"                                                                   #Machine name prefix to include
 $businessStartTime =  "06:00"                                                               #Start time of the business
 $businessCloseTime = "18:00"                                                                #End time of the business
-$outOfHoursMachines = "0"                                                                   #How many machines should be powered on during the weekends
-$inHoursMachines = "2"                                                                      #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
+$outOfHoursMachines = "1"                                                                   #How many machines should be powered on during the weekends
+$inHoursMachines = "1"                                                                      #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
 $machineScaling = "CPU"                                                                     #Options are (Schedule, CPU, Memory, Index or Sessions)
-$farmCPUThreshhold = "90"                                                                   #Farm CPU threshhold average ex: 90 = 90% CPU across the farm on average
-$farmMemoryThreshhold = "90"                                                                #Farm memory threshhold average ex: 90 = 90% memory used across the farm on average
-$farmIndexThreshhold = "5000"                                                               #Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm
-$farmSessionThreshhold = "20"                                                               #Farm Session threshhold average ex: 20 = An average of 20 users on each server
+$farmCPUThreshhold = 90                                                                     #Farm CPU threshhold average ex: 90 = 90% CPU across the farm on average
+$farmMemoryThreshhold = 90                                                                  #Farm memory threshhold average ex: 90 = 90% memory used across the farm on average
+$farmIndexThreshhold = 5000                                                                 #Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm
+$farmSessionThreshhold = 20                                                                 #Farm Session threshhold average ex: 20 = An average of 20 users on each server
 $LogNumberOfDays = 7                                                                        #Days to rotate the logs after
 $logLocation = "C:\Users\leee.jeffries.ctxlab.000\OneDrive - Leee Jeffries\Source\PowerScale\PowerScale_Log.log"      #Log file location
 $forceUserLogoff = $true                                                                    #Force user sessions to be logged off out of hours or allow user sessions to drain
