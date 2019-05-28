@@ -402,9 +402,16 @@ Function brokerAction() {
     If (-not $null -eq $delay) {
         WriteLog -Message "Machine action for $machineName - $machineAction in $delay minutes" -Level Info
         If (!$testingOnly) {New-BrokerDelayedHostingPowerAction -AdminAddress $citrixcontroller -MachineName $machineName -Action $machineAction -Delay $(New-TimeSpan -Minutes $delay) }
+
     } else {
         WriteLog -Message "Machine action for $machineName - $machineAction immediately" -Level Info
         If (!$testingOnly) {New-BrokerHostingPowerAction -AdminAddress $citrixcontroller -MachineName $machineName -Action $machineAction}
+    }
+    
+    #Remove the scaling tag if one exists
+    if (Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName "CTXLAB\XDSHNP-02").uid) {
+        WriteLog -Message "Remove Scaling tag from $machineName" -Level Info
+        Remove-BrokerTag "Scaled-On" -Machine $machineName
     }
 }
 
@@ -1034,6 +1041,7 @@ $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contai
 #Create the broker tag for scaling if it doesn't exist
 If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController)) {
     New-BrokerTag "Scaled-On"
+
 }
 #########################Reset All Variables and Get All Metrics###################################
 
