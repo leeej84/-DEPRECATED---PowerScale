@@ -648,6 +648,7 @@ WriteLog -Message "$($overallAverage.overallMemory.Average) - Overall Memory Ave
 WriteLog -Message "$($overallAverage.overallIndex.Average) - Overall Session Index Average" -Level Info
 WriteLog -Message "$($overallAverage.overallSession.Average) - Overall Session Count Average" -Level Info
 
+Return $overallAverage
 }
 
 #Force user logoffs out of hours for the specified number of machines
@@ -1013,19 +1014,11 @@ if ($performanceScaling) {
     #Run the performance monitoring script to create XML files
     WriteLog -Message "Performance scaling is enabled - attempting performance metrics capture" -Level Info
     try {
-        performanceAnalysis -machinePrefix $machinePrefix -performanceSamples $performanceSamples -performanceInterval $performanceInterval -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
+        $overallPerformance = performanceAnalysis -machinePrefix $machinePrefix -performanceSamples $performanceSamples -performanceInterval $performanceInterval -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
     } catch {
         WriteLog -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and WMI. " -Level Error
         #Log out the latest error - does not mean performance measurement was unsuccessful on all machines
         WriteLog -Message "$Error[$($Error.Count)]" -Level Error
-        Exit
-    }
-    #Check for performance measurement XML files
-    try {
-        $individualPerformance = Import-cliXml -Path "$ScriptPath\Individual.xml"
-        $overallPerformance = Import-cliXml -Path "$ScriptPath\Overall.xml"
-    } catch {
-        WriteLog -Message "There was an error generating and then importing the performance data, please ensure you have WMI access to your servers." -Level Error
         Exit
     }
 }
