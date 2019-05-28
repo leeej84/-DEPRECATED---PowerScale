@@ -409,7 +409,7 @@ Function brokerAction() {
     }
     
     #Remove the scaling tag if one exists
-    if (Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName "CTXLAB\XDSHNP-02").uid) {
+    if (Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $machineName).uid) {
         WriteLog -Message "Remove Scaling tag from $machineName" -Level Info
         Remove-BrokerTag "Scaled-On" -Machine $machineName
     }
