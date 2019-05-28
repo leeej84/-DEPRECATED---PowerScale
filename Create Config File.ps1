@@ -1,5 +1,6 @@
 $performanceIndividual = "Individual.xml"                                                   #Individual machine performance XML
 $performanceOverAll = "Overall.xml"                                                         #Overall machine performance XML
+$performanceScaling = $false                                                                #Performance scaling to be turned on or off (true or false)
 $performanceSampleInterval = "1"                                                            #Interval of time to wait between samples
 $performanceSamples = "1"                                                                   #Number of performance samples to gather
 $citrixController = "XDDC-01.ctxlab.local"                                                  #Citrix controller name or IP
@@ -36,6 +37,8 @@ $configContent = [PSCustomObject]@{
     performanceIndividualComment = "Individual machine performance XML"
     performanceOverall = $performanceOverAll 
     performanceOverallComment = "Overall machine performance XML"
+    performanceScaling = $performanceScaling                                                               
+    performanceScalingComment = "Performance scaling to be turned on or off (true or false)"
     performanceSampleInterval = $performanceSampleInterval 
     performanceSampleIntervalComment = "Interval of time to wait between samples"
     performanceSamples = $performanceSamples = "1"
