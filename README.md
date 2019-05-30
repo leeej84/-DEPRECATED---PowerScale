@@ -1,5 +1,5 @@
 # PowerScale
-<img src="https://www.leeejeffries.com/wp-content/uploads/2019/05/logo_small.jpg" alt="PowerScale icon" width="300px" height="200px" style="float: left; margin-right: 10px;" />
+<img src="https://www.leeejeffries.com/wp-content/uploads/2019/05/logo_small.jpg" alt="PowerScale icon" width="250px" height="200px" style="float: left; margin-right: 10px;" />
 Citrix currently have a product called SmartScale, this product is being put out to pasture at the end of May.
 
 The idea of PowerScale is to provide a solution with equivalent functionality.
