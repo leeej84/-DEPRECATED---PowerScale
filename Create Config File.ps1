@@ -14,6 +14,9 @@ $farmCPUThreshhold = 85                                                         
 $farmMemoryThreshhold = 85                                                                  #Farm memory threshhold average ex: 90 = 90% memory used across the farm on average
 $farmIndexThreshhold = 5000                                                                 #Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm
 $farmSessionThreshhold = 12                                                                 #Farm Session threshhold average ex: 20 = An average of 20 users on each server
+$dashboardBackupTime = "04:00"                                                              #The time that the Dashboard should be backed up and new one started
+$dashboardRetention = 5                                                                     #How many Dashboard files should be retained
+$scriptRunInterval = 15                                                                     #How often the script runs, used to find a window of time to backup the dashboard files
 $LogNumberOfDays = 7                                                                        #Days to rotate the logs after
 $logLocation = "C:\Powerscale\PowerScale_Log.log"                                           #Log file location
 $forceUserLogoff = $true                                                                    #Force user sessions to be logged off out of hours or allow user sessions to drain
@@ -65,6 +68,12 @@ $configContent = [PSCustomObject]@{
     farmIndexThreshholdComment = "Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm"
     farmSessionThreshhold = $farmSessionThreshhold
     farmSessionThreshholdComment = "Farm Session threshhold average ex: 20 = An average of 20 users on each server"
+    dashboardBackupTime = $dashboardBackupTime
+    dashboardBackupTimeComment = "The time that the Dashboard should be backed up and new one started"
+    dashboardRetention = $dashboardRetention
+    dashboardRetentionComment = "How many Dashboard files should be retained"
+    scriptRunInterval = $scriptRunInterval
+    scriptRunIntervalComment = "How often the script runs, used to find a window of time to backup the dashboard files"
     LogNumberOfDaysComment = "Days to rotate the logs after"
     LogNumberOfDays = $LogNumberOfDays 
     logLocationComment = "Log file location"
