@@ -2,3 +2,5 @@
 *.log
 *.key
 *.pass
+*.json
+Dashboard
