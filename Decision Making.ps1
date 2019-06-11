@@ -11,6 +11,8 @@
 #Get current script folder
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 $scriptPath
+$dashPath = "$scriptPath\Dashboard"
+$jsonPath = "$dashPath\JSON"
 
 
 #Function to pull in configuration information from the config file
@@ -54,6 +56,9 @@ $farmCPUThreshhold = $configInfo.farmCPUThreshhold
 $farmMemoryThreshhold = $configInfo.farmMemoryThreshhold
 $farmIndexThreshhold = $configInfo.farmIndexThreshhold
 $farmSessionThreshhold = $configInfo.farmSessionThreshhold
+$dashboardBackupTime = $configInfo.$dashboardBackupTime
+$dashboardRetention = $configInfo.$dashboardRetention
+$scriptRunInterval = $configInfo.ScriptRunInterval
 $LogNumberOfDays = $configInfo.LogNumberOfDays
 $logLocation = $configInfo.logLocation 
 $forceUserLogoff = $configInfo.forceUserLogoff    
@@ -68,6 +73,14 @@ $smtpSubject = $configInfo.smtpSubject
 $testingOnly = $configInfo.testingOnly
 $exclusionTag = $configInfo.exclusionTag
 $wmiServiceAccount = $configInfo.wmiServiceAccount
+#Add a script run interval variable, must be filled in for comparison of dashboard backup
+#Add a dashboard backup variable, the time the dashboard files should be backed up
+
+#Set value for JSON files missing to false as its used in comparison
+$jsonMissing = $false
+
+#Set array of file names for JSON files
+$jsonFileTable = "times.json","machinesOn.json","machinesScaled.json","machinesMaintenance.json","machinesExcluded.json","farmCPU.json","farmMemory.json","farmIndex.json","farmSession.json"
 
 #Get current date in correct format
 $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
@@ -76,6 +89,7 @@ $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
 $timesObj = [PSCustomObject]@{
     startTime = [datetime]::ParseExact($("$($dateNow) $($businessStartTime)"), "dd/MM/yy HH:mm", $null)
     endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
+    backupTime = [datetime]::ParseExact($("$($dateNow) $($dashboardBackupTime)"), "dd/MM/yy HH:mm", $null)
     timeNow = $(Get-Date)
     #Set a specific time for testing
     #timeNow = $([datetime]::ParseExact("26/05/19 09:00", "dd/MM/yy HH:mm", $null))
@@ -83,6 +97,179 @@ $timesObj = [PSCustomObject]@{
 
 #Load Citrix Snap-ins
 Add-PSSnapin Citrix*
+
+#Function to generate Dashboards
+Function GenerateDashboard() {
+    #Check if the json folder exists
+    if (test-path $jsonPath) {
+    $jsonData = [System.Collections.ArrayList]::new()
+    foreach ($jsonFile in $jsonFileTable) {
+        #Test if we can get to each json file and it already exists
+        if (Test-Path "$jsonPath\$jsonFile") {        
+                $readData = [PSCustomObject]@{$jsonFile=[PSCustomObject]@{json = $(Get-Content "$jsonPath\$jsonFile" | ConvertFrom-Json -Verbose)}}
+                $jsonData.Add($readData)
+            } else {
+                #Logout which files were missing
+                $jsonMissing = $true     
+            }  
+        }
+
+        if (!$jsonMissing) {
+            #Add a value into the array
+            $jsonData.'times.json'.json.labels += $timesObj.timeNow
+            $jsonData.'machinesOn.json'.json.data += $machinesOnAndNotMaintenance.DNSName.count
+            $jsonData.'machinesScaled.json'.json.data += $machinesScaled.DNSName.count
+            $jsonData.'machinesMaintenance.json'.json.data += $machinesMaintenance.DNSName.count
+            $jsonData.'machinesExcluded.json'.json.data += $machinesExcluded.DNSName.count    
+            $jsonData.'farmCPU.json'.json.data += $overallAverage.overallCPU.Average
+            $jsonData.'farmMemory.json'.json.data += $overallAverage.overallMemory.Average
+            $jsonData.'farmIndex.json'.json.data += $overallAverage.overallIndex.Average
+            $jsonData.'farmSession.json'.json.data += $overallAverage.overallSession.Average
+        } else {
+            #Remove JSON folder to trigger a clean run next time around
+            #Log that this is happening
+        }
+    } else {
+        #Create JSON Object Array
+        $jsonData = [System.Collections.ArrayList]::new()
+        
+        #Create the subfolder
+        New-Item -ItemType Directory -Path "$scriptPath\Dashboard" -Name JSON
+        New-Item -ItemType Directory -Path $scriptPath -Name Dashboard
+
+        #Create the JSON file
+        foreach ($jsonFile in $jsonFileTable) {
+            New-Item -ItemType File -Path $jsonPath -Name $jsonFile    
+        }
+
+        $readData = [PSCustomObject]@{'times.json'=[PSCustomObject]@{json=[PSCustomObject]@{labels = @($timesObj.timeNow)}}}
+        $jsonData.Add($readData)
+        $readData = [PSCustomObject]@{'machinesOn.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesOnAndNotMaintenance.DNSName.count)}}}
+        $jsonData.Add($readData)
+        $readData = [PSCustomObject]@{'machinesScaled.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesScaled.DNSName.count)}}}
+        $jsonData.Add($readData)
+        $readData = [PSCustomObject]@{'machinesMaintenance.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesMaintenance.DNSName.count)}}}
+        $jsonData.Add($readData)
+        $readData = [PSCustomObject]@{'machinesExcluded.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesExcluded.DNSName.count)}}}
+        $jsonData.Add($readData)
+        $readData = [PSCustomObject]@{'farmCPU.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallAverage.overallCPU.Average)}}}
+        $jsonData.Add($readData)
+        $readData = [PSCustomObject]@{'farmMemory.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallAverage.overallMemory.Average)}}}
+        $jsonData.Add($readData)
+        $readData = [PSCustomObject]@{'farmIndex.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallAverage.overallIndex.Average)}}}
+        $jsonData.Add($readData)
+        $readData = [PSCustomObject]@{'farmSession.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallAverage.overallSession.Average)}}}
+        $jsonData.Add($readData)
+    }
+
+    foreach ($jsonFile in $jsonFileTable) {
+        $jsonData.$jsonFile.json | ConvertTo-Json | Set-Content "$jsonPath\$jsonFile"
+    }
+
+     #Replacements in javascript for graph data
+    $jsScript = Get-Content "$scriptPath\Template\script_template.js"
+    $jsScript = $jsScript.Replace("<TIMESJSON>",$($jsonData.'times.json'.json | ConvertTo-Json).Replace("}",""))
+    $jsScript = $jsScript.Replace("<MACHINESONDATA>",$($jsonData.'machinesOn.json'.json | ConvertTo-Json).Replace("{","").Replace("}",""))
+    $jsScript = $jsScript.Replace("<MACHINESSCALEDATA>",$($jsonData.'machinesScaled.json'.json | ConvertTo-Json).Replace("{","").Replace("}",""))
+    $jsScript = $jsScript.Replace("<MACHINESMAINTDATA>",$($jsonData.'machinesMaintenance.json'.json | ConvertTo-Json).Replace("{","").Replace("}",""))
+    $jsScript = $jsScript.Replace("<MACHINESEXCLDATA>",$($jsonData.'machinesExcluded.json'.json | ConvertTo-Json).Replace("{","").Replace("}",""))
+    $jsScript = $jsScript.Replace("<CPUDATA>",$($jsonData.'farmCPU.json'.json | ConvertTo-Json).Replace("{","").Replace("}",""))
+    $jsScript = $jsScript.Replace("<MEMORYDATA>",$($jsonData.'farmMemory.json'.json | ConvertTo-Json).Replace("{","").Replace("}",""))
+    $jsScript = $jsScript.Replace("<INDEXDATA>",$($jsonData.'farmIndex.json'.json | ConvertTo-Json).Replace("{","").Replace("}",""))
+    $jsScript = $jsScript.Replace("<SESSIONDATA>",$($jsonData.'farmSession.json'.json | ConvertTo-Json).Replace("{","").Replace("}",""))
+    $jsScript | Set-Content "$scriptPath\Dashboard\script.js"
+
+    #Replacements in HTML for configuration data
+    $HTML = Get-Content "$scriptPath\Template\dashboard_template.html"
+    $HTML = $HTML.Replace('&lt;Controller&gt;','test')
+    $HTML | Set-Content "$scriptPath\Dashboard\Dashboard.html"
+
+    if (-Not (Test-Path "$scriptPath\Dashboard\chart.min.js")) {
+        Copy-Item -Path "$scriptPath\Template\chart.min.js" -Destination "$scriptPath\Dashboard\chart.min.js"
+    }
+
+    $scriptRunInterval = New-TimeSpan -Minutes 15
+    $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
+    $timesObj = [PSCustomObject]@{    
+        #endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
+        #timeNow = $(Get-Date)
+        #Set a specific time for testing
+        timeNow = $([datetime]::ParseExact("25/06/19 07:05", "dd/MM/yy HH:mm", $null))
+        backupTime = [datetime]::ParseExact("25/06/19 06:45", "dd/MM/yy HH:mm", $null)
+    }
+}
+
+#Function to control Dashboard retention
+Function CircularDashboard() {
+    
+    [CmdletBinding()] 
+    Param 
+    ( 
+        [Parameter(Mandatory=$true, HelpMessage = "How many historical dashboards to store")] 
+        [ValidateNotNullOrEmpty()] 
+        [Alias("DashRetention")] 
+        [int]$retention
+ 
+    )
+
+    Begin 
+    { 
+        # Set VerbosePreference to Continue so that verbose messages are displayed. 
+        $VerbosePreference = 'Continue' 
+    } 
+    Process 
+    {   
+        #Find all HTML files
+        $htmlFiles = Get-ChildItem ("$scriptPath\Dashboard\*.html") | Sort-Object CreationTime
+        #Find all javascript files
+        $jscriptFiles = Get-ChildItem ("$scriptPath\Dashboard\*.js") -Exclude "chart.min.js" | Sort-Object CreationTime
+        #Find all currently backed up Dashboard files
+        $htmlFilesCopied = Get-ChildItem ("$scriptPath\Dashboard\Dashboard-*.html") | Sort-Object CreationTime
+        
+        If ($htmlFilesCopied.count -lt $retention) {
+            #Remove older JSON files
+            Get-ChildItem -Path "$jsonPath\*.json" | Remove-Item
+
+            #Grab html file contents and make replacements before renaming
+            (Get-Content -Path "$scriptPath\Dashboard\Dashboard.html").Replace("script.js","script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js") | Set-Content -Path "$scriptPath\Dashboard\Dashboard.html"
+            
+            #Create a backup of the current dashboard
+            Rename-Item -Path "$scriptPath\Dashboard\Dashboard.html" -NewName "Dashboard-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).html"
+            Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
+        }
+
+        If ($htmlFilesCopied.count -eq $retention) {
+            #WriteLog -Message "Start Circular Dashboard Management" -Level Info
+            #Get all log files in the log folder with .log extension, select the oldest ones past the specified retention number and remove them
+            
+            #Check how many log files we have
+            If ($htmlFiles.count -gt $retention) {
+                #Calculate files to remove
+                $htmlFiles.count  
+                $filesToRemove = ($htmlFiles) | Sort-Object CreationTime | Select-Object -First $($htmlFiles.count - $retention)
+                $filesToRemove
+                foreach ($file in $filesToRemove) {
+                    $file | Remove-Item               
+                    #WriteLog -Message "Older dashboard files removed $file" -Level Info
+                }
+            }
+            If ($jscriptFiles.count -gt $retention) {
+                #Calculate files to remove
+                $jscriptFiles.count
+                $filesToRemove = ($jscriptFiles) | Sort-Object CreationTime | Select-Object -First $($jscriptFiles.count - $retention)
+                $filesToRemove
+                foreach ($file in $filesToRemove) {
+                    $file | Remove-Item               
+                    #WriteLog -Message "Older javascript files removed $file" -Level Info
+                }
+            }
+            #WriteLog -Message "Completed Circular Dashboard Management" -Level Info
+        }
+    } 
+    End 
+    { 
+    }
+}
 
 #Function to create a log file
 Function WriteLog() {
@@ -1042,6 +1229,10 @@ If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController)) {
 #Kick off Circular logging maintenance
 CircularLogging
 
+#If the time is inside the backup dashboard window time taking into account the script run interval then perform circular dashboard management
+If ((($timesObj.timeNow -ge $($timesObj.backupTime)) -and ($timesObj.timeNow -le $($timesObj.backupTime + $scriptRunInterval)))) {
+    CircularDashboard -retention $dashboardRetention
+}
 #Is it a weekday?
 If ($(IsWeekDay -date $($timesObj.timeNow))) {
     #If it is a weekday, then check if we are within working hours or not
