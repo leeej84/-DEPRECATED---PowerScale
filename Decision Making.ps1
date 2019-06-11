@@ -122,10 +122,10 @@ Function GenerateDashboard() {
             $jsonData.'machinesScaled.json'.json.data += $machinesScaled.DNSName.count
             $jsonData.'machinesMaintenance.json'.json.data += $machinesMaintenance.DNSName.count    
             $jsonData.'machinesExcluded.json'.json.data += $machinesExcluded.DNSName.count    
-            $jsonData.'farmCPU.json'.json.data += $overallAverage.overallCPU.Average
-            $jsonData.'farmMemory.json'.json.data += $overallAverage.overallMemory.Average
-            $jsonData.'farmIndex.json'.json.data += $overallAverage.overallIndex.Average
-            $jsonData.'farmSession.json'.json.data += $overallAverage.overallSession.Average
+            $jsonData.'farmCPU.json'.json.data += $overallPerformance.overallCPU.Average
+            $jsonData.'farmMemory.json'.json.data += $overallPerformance.overallMemory.Average
+            $jsonData.'farmIndex.json'.json.data += $overallPerformance.overallIndex.Average
+            $jsonData.'farmSession.json'.json.data += $overallPerformance.overallSession.Average
         } else {
             #Remove JSON files and log out what is happening
             Remove-Item -Path $jsonPath -Force
@@ -1185,6 +1185,7 @@ $allUserSessions = ""
 try {
     $allMachines = brokerMachineStates -machinePrefix $machinePrefix | Where-Object {$_.Tags -notcontains $exclusionTag}
     $allUserSessions = brokerUserSessions -machinePrefix $machinePrefix | Where-Object {$_.Tags -notcontains $exclusionTag}
+    $machinesExcluded = brokerMachineStates -machinePrefix $machinePrefix | Where-Object {$_.Tags -contains $exclusionTag}
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
     Exit
