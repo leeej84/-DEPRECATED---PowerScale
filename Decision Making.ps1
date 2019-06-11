@@ -183,7 +183,20 @@ Function GenerateDashboard() {
 
     #Replacements in HTML for configuration data
     $HTML = Get-Content "$scriptPath\Template\dashboard_template.html"
-    $HTML = $HTML.Replace('&lt;Controller&gt;','test')
+    $HTML = $HTML.Replace('&lt;Controller&gt;',$citrixController)
+    $HTML = $HTML.Replace('&lt;TestValue&gt;',$(if ($testingOnly) {"Test Mode"}else{"Live Mode"}))
+    $HTML = $HTML.Replace('&lt;PefixValue&gt;',$machinePrefix)
+    $HTML = $HTML.Replace('&lt;StartTime&gt;',$businessStartTime)
+    $HTML = $HTML.Replace('&lt;EndTime&gt;',$businessCloseTime)
+    $HTML = $HTML.Replace('&lt;ScalingMode&gt;',$machineScaling)
+    $HTML = $HTML.Replace('&lt;CPUValue&gt;',$overallPerformance.overallCPU.average)
+    $HTML = $HTML.Replace('&lt;MemoryValue&gt;',$overallPerformance.overallMemory.average)
+    $HTML = $HTML.Replace('&lt;LoadValue&gt;',$overallPerformance.overallIndex.average)
+    $HTML = $HTML.Replace('&lt;SessionValue&gt;',$overallPerformance.overallSession.average)
+    $HTML = $HTML.Replace('&lt;CPUThresh&gt;',$farmCPUThreshhold)
+    $HTML = $HTML.Replace('&lt;MEMThresh&gt;',$farmMemoryThreshhold)
+    $HTML = $HTML.Replace('&lt;INDThresh&gt;',$farmIndexThreshhold)
+    $HTML = $HTML.Replace('&lt;SESSThresh&gt;',$farmSessionThreshhold)
     $HTML | Set-Content "$scriptPath\Dashboard\Dashboard.html"
 
     if (-Not (Test-Path "$scriptPath\Dashboard\chart.min.js")) {
