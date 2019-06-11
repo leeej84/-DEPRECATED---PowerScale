@@ -56,8 +56,8 @@ $farmCPUThreshhold = $configInfo.farmCPUThreshhold
 $farmMemoryThreshhold = $configInfo.farmMemoryThreshhold
 $farmIndexThreshhold = $configInfo.farmIndexThreshhold
 $farmSessionThreshhold = $configInfo.farmSessionThreshhold
-$dashboardBackupTime = $configInfo.$dashboardBackupTime
-$dashboardRetention = $configInfo.$dashboardRetention
+$dashboardBackupTime = $configInfo.dashboardBackupTime
+$dashboardRetention = $configInfo.dashboardRetention
 $scriptRunInterval = $configInfo.ScriptRunInterval
 $LogNumberOfDays = $configInfo.LogNumberOfDays
 $logLocation = $configInfo.logLocation 
@@ -110,24 +110,26 @@ Function GenerateDashboard() {
                 $jsonData.Add($readData)
             } else {
                 #Logout which files were missing
+                WriteLog -Message "JSON folder exists but JSON file $jsonFile is missing" -Level Warning                
                 $jsonMissing = $true     
             }  
         }
 
         if (!$jsonMissing) {
             #Add a value into the array
-            $jsonData.'times.json'.json.labels += $timesObj.timeNow
+            $jsonData.'times.json'.json.labels += $(@($timesObj.timeNow.ToShortTimeString() + "-" + $timesObj.timeNow.ToShortDateString()))
             $jsonData.'machinesOn.json'.json.data += $machinesOnAndNotMaintenance.DNSName.count
             $jsonData.'machinesScaled.json'.json.data += $machinesScaled.DNSName.count
-            $jsonData.'machinesMaintenance.json'.json.data += $machinesMaintenance.DNSName.count
+            $jsonData.'machinesMaintenance.json'.json.data += $machinesMaintenance.DNSName.count    
             $jsonData.'machinesExcluded.json'.json.data += $machinesExcluded.DNSName.count    
             $jsonData.'farmCPU.json'.json.data += $overallAverage.overallCPU.Average
             $jsonData.'farmMemory.json'.json.data += $overallAverage.overallMemory.Average
             $jsonData.'farmIndex.json'.json.data += $overallAverage.overallIndex.Average
             $jsonData.'farmSession.json'.json.data += $overallAverage.overallSession.Average
         } else {
-            #Remove JSON folder to trigger a clean run next time around
-            #Log that this is happening
+            #Remove JSON files and log out what is happening
+            Remove-Item -Path $jsonPath -Force
+            WriteLog -Message "JSON folder deleted, dashboard metrics will reset" -Level Warning   
         }
     } else {
         #Create JSON Object Array
@@ -142,7 +144,7 @@ Function GenerateDashboard() {
             New-Item -ItemType File -Path $jsonPath -Name $jsonFile    
         }
 
-        $readData = [PSCustomObject]@{'times.json'=[PSCustomObject]@{json=[PSCustomObject]@{labels = @($timesObj.timeNow)}}}
+        $readData = [PSCustomObject]@{'times.json'=[PSCustomObject]@{json=[PSCustomObject]@{labels = @($timesObj.timeNow.ToShortTimeString() + "-" + $timesObj.timeNow.ToShortDateString())}}}
         $jsonData.Add($readData)
         $readData = [PSCustomObject]@{'machinesOn.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesOnAndNotMaintenance.DNSName.count)}}}
         $jsonData.Add($readData)
@@ -152,13 +154,13 @@ Function GenerateDashboard() {
         $jsonData.Add($readData)
         $readData = [PSCustomObject]@{'machinesExcluded.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesExcluded.DNSName.count)}}}
         $jsonData.Add($readData)
-        $readData = [PSCustomObject]@{'farmCPU.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallAverage.overallCPU.Average)}}}
+        $readData = [PSCustomObject]@{'farmCPU.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallPerformance.overallCPU.Average)}}}
         $jsonData.Add($readData)
-        $readData = [PSCustomObject]@{'farmMemory.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallAverage.overallMemory.Average)}}}
+        $readData = [PSCustomObject]@{'farmMemory.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallPerformance.overallMemory.Average)}}}
         $jsonData.Add($readData)
-        $readData = [PSCustomObject]@{'farmIndex.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallAverage.overallIndex.Average)}}}
+        $readData = [PSCustomObject]@{'farmIndex.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallPerformance.overallIndex.Average)}}}
         $jsonData.Add($readData)
-        $readData = [PSCustomObject]@{'farmSession.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallAverage.overallSession.Average)}}}
+        $readData = [PSCustomObject]@{'farmSession.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($overallPerformance.overallSession.Average)}}}
         $jsonData.Add($readData)
     }
 
@@ -186,16 +188,6 @@ Function GenerateDashboard() {
 
     if (-Not (Test-Path "$scriptPath\Dashboard\chart.min.js")) {
         Copy-Item -Path "$scriptPath\Template\chart.min.js" -Destination "$scriptPath\Dashboard\chart.min.js"
-    }
-
-    $scriptRunInterval = New-TimeSpan -Minutes 15
-    $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
-    $timesObj = [PSCustomObject]@{    
-        #endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
-        #timeNow = $(Get-Date)
-        #Set a specific time for testing
-        timeNow = $([datetime]::ParseExact("25/06/19 07:05", "dd/MM/yy HH:mm", $null))
-        backupTime = [datetime]::ParseExact("25/06/19 06:45", "dd/MM/yy HH:mm", $null)
     }
 }
 
@@ -1299,6 +1291,9 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         Startup -numberMachines $action.Number
     }
 }
+#Generate the Dashboard Files
+GenerateDashboard
+
 #Log for script finish
 WriteLog -Message "#######PowerScale script finishing#######" -Level Info -NoClobber
 WriteLog -Message "-" -Level Info -NoClobber
