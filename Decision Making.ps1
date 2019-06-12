@@ -197,10 +197,31 @@ Function GenerateDashboard() {
     $HTML = $HTML.Replace('&lt;MEMThresh&gt;',$farmMemoryThreshhold)
     $HTML = $HTML.Replace('&lt;INDThresh&gt;',$farmIndexThreshhold)
     $HTML = $HTML.Replace('&lt;SESSThresh&gt;',$farmSessionThreshhold)
+
     $HTML | Set-Content "$scriptPath\Dashboard\Dashboard.html"
 
     if (-Not (Test-Path "$scriptPath\Dashboard\chart.min.js")) {
         Copy-Item -Path "$scriptPath\Template\chart.min.js" -Destination "$scriptPath\Dashboard\chart.min.js"
+    }
+}
+
+#Function to Update Dashboard File Navigation Links
+Function UpdateDashboardNavigation {
+    #Get a list of all html files in the Dashboard folder
+    $htmlFiles = Get-ChildItem -Path $dashPath *.html | Sort-Object CreationTime
+
+    #Loop to generate html text
+    $htmlNav = foreach ($htmlFile in $htmlFiles) {
+        if ($htmlFile.Name -eq "Dashboard.html") {
+            "<A HREF=$($htmlFile.Name)>Current</A>"
+        } else {
+            "<A HREF=`"$($htmlFile.Name)`">$($htmlFile.CreationTime.ToShortDateString())</A>"
+        }
+    }
+
+    $htmlNav
+    foreach ($htmlFile in $htmlFiles) {
+        $(Get-Content -Path $htmlFile.FullName) -replace '(?<=<nav>).*?(?=</nav)', $htmlNav | Set-Content -Path $htmlFile.FullName
     }
 }
 
@@ -1316,6 +1337,9 @@ GenerateDashboard
 If ((($timesObj.timeNow -ge $($timesObj.backupTime)) -and ($timesObj.timeNow -le $($timesObj.backupTime + $scriptRunInterval)))) {
     CircularDashboard -retention $dashboardRetention
 }
+
+#Update Dashboard navigation links
+UpdateDashboardNavigation
 
 #Log for script finish
 WriteLog -Message "#######PowerScale script finishing#######" -Level Info -NoClobber
