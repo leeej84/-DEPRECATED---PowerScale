@@ -819,6 +819,13 @@ $Metrics = Do {
         Remove-Job $job
     }
 
+    ForEach ($job in $runningJobs) {
+        if ($job.State -eq "Failed") {
+        WriteLog -Message "Performance measurement failed for $($job.name)" -Level Error
+        WriteLog -Message ($job | Receive-Job) -Level Error
+        $job | Remove-Job
+        }
+    }
     Start-Sleep -Seconds 5
 } Until ($runningJobs.Count -eq 0)
 
