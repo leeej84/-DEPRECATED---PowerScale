@@ -58,7 +58,7 @@ $farmIndexThreshhold = $configInfo.farmIndexThreshhold
 $farmSessionThreshhold = $configInfo.farmSessionThreshhold
 $dashboardBackupTime = $configInfo.dashboardBackupTime
 $dashboardRetention = $configInfo.dashboardRetention
-$scriptRunInterval = $configInfo.ScriptRunInterval
+$scriptRunInterval = New-TimeSpan -Minutes $configInfo.ScriptRunInterval
 $LogNumberOfDays = $configInfo.LogNumberOfDays
 $logLocation = $configInfo.logLocation 
 $forceUserLogoff = $configInfo.forceUserLogoff    
@@ -221,6 +221,7 @@ Function CircularDashboard() {
     { 
         # Set VerbosePreference to Continue so that verbose messages are displayed. 
         $VerbosePreference = 'Continue' 
+        WriteLog -Message "Start Circular Dashboard Management" -Level Info
     } 
     Process 
     {   
@@ -243,8 +244,7 @@ Function CircularDashboard() {
             Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
         }
 
-        If ($htmlFilesCopied.count -eq $retention) {
-            #WriteLog -Message "Start Circular Dashboard Management" -Level Info
+        If ($htmlFilesCopied.count -eq $retention) {            
             #Get all log files in the log folder with .log extension, select the oldest ones past the specified retention number and remove them
             
             #Check how many log files we have
@@ -255,7 +255,7 @@ Function CircularDashboard() {
                 $filesToRemove
                 foreach ($file in $filesToRemove) {
                     $file | Remove-Item               
-                    #WriteLog -Message "Older dashboard files removed $file" -Level Info
+                    WriteLog -Message "Older dashboard files removed $file" -Level Info
                 }
             }
             If ($jscriptFiles.count -gt $retention) {
@@ -265,10 +265,10 @@ Function CircularDashboard() {
                 $filesToRemove
                 foreach ($file in $filesToRemove) {
                     $file | Remove-Item               
-                    #WriteLog -Message "Older javascript files removed $file" -Level Info
+                    WriteLog -Message "Older javascript files removed $file" -Level Info
                 }
             }
-            #WriteLog -Message "Completed Circular Dashboard Management" -Level Info
+            WriteLog -Message "Completed Circular Dashboard Management" -Level Info
         }
     } 
     End 
@@ -746,7 +746,7 @@ ForEach ($computer in $computers) {
         #Only gather performance metrics for machines that we have WMI access to 
         WriteLog -Message "Starting performance measurement job for $computer using specified credentials" -Level Info -Verbose
         If  ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer -Credential $(WMIDetailsImport))) {
-            Start-Job -Name $computer -Credential $(WMIDetailsImport) -ScriptBlock {
+            Start-Job -Name $computer -Credential $(WMIDetailsImport) -Verbose -ScriptBlock {
                 param (
                 $computer,
                 $ctxController,
@@ -777,7 +777,7 @@ ForEach ($computer in $computers) {
         }
     } elseif ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer)) { 
         WriteLog -Message "Starting performance measurement job for $computer using script run credentials" -Level Info -Verbose
-        Start-Job -Name $computer -ScriptBlock {
+        Start-Job -Name $computer -Verbose -ScriptBlock {
         param (
         $computer,
         $ctxController,
@@ -1235,10 +1235,6 @@ If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController)) {
 #Kick off Circular logging maintenance
 CircularLogging
 
-#If the time is inside the backup dashboard window time taking into account the script run interval then perform circular dashboard management
-If ((($timesObj.timeNow -ge $($timesObj.backupTime)) -and ($timesObj.timeNow -le $($timesObj.backupTime + $scriptRunInterval)))) {
-    CircularDashboard -retention $dashboardRetention
-}
 #Is it a weekday?
 If ($(IsWeekDay -date $($timesObj.timeNow))) {
     #If it is a weekday, then check if we are within working hours or not
@@ -1305,6 +1301,11 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         Startup -numberMachines $action.Number
     }
 }
+#If the time is inside the backup dashboard window time taking into account the script run interval then perform circular dashboard management
+If ((($timesObj.timeNow -ge $($timesObj.backupTime)) -and ($timesObj.timeNow -le $($timesObj.backupTime + $scriptRunInterval)))) {
+    CircularDashboard -retention $dashboardRetention
+}
+
 #Generate the Dashboard Files
 GenerateDashboard
 
