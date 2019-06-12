@@ -1301,13 +1301,14 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         Startup -numberMachines $action.Number
     }
 }
+
+#Generate the Dashboard Files
+GenerateDashboard
+
 #If the time is inside the backup dashboard window time taking into account the script run interval then perform circular dashboard management
 If ((($timesObj.timeNow -ge $($timesObj.backupTime)) -and ($timesObj.timeNow -le $($timesObj.backupTime + $scriptRunInterval)))) {
     CircularDashboard -retention $dashboardRetention
 }
-
-#Generate the Dashboard Files
-GenerateDashboard
 
 #Log for script finish
 WriteLog -Message "#######PowerScale script finishing#######" -Level Info -NoClobber
