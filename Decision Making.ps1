@@ -110,7 +110,7 @@ Function GenerateDashboard() {
                 $jsonData.Add($readData)
             } else {
                 #Logout which files were missing
-                WriteLog -Message "JSON folder exists but JSON file $jsonFile is missing" -Level Warning                
+                WriteLog -Message "JSON folder exists but JSON file $jsonFile is missing" -Level Warn                
                 $jsonMissing = $true     
             }  
         }
@@ -129,7 +129,7 @@ Function GenerateDashboard() {
         } else {
             #Remove JSON files and log out what is happening
             Remove-Item -Path $jsonPath -Force
-            WriteLog -Message "JSON folder deleted, dashboard metrics will reset" -Level Warning   
+            WriteLog -Message "JSON folder deleted, dashboard metrics will reset" -Level Warn   
         }
     } else {
         #Create JSON Object Array
@@ -439,7 +439,7 @@ Function SendEmail() {
         } else {
             # Send email message without attachment
             Send-MailMessage -SmtpServer $smtpServer -From $fromAddress -To $toAddress -Subject $("$subject - $Level") -Body "$FormattedDate $LevelText $Message"
-            WriteLog -Message "Sending out an email without an attachment, attachment did not exist." -Level warning 
+            WriteLog -Message "Sending out an email without an attachment, attachment did not exist." -Level Warn 
         }        
     } 
     End 
