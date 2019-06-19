@@ -20,7 +20,7 @@ Function configurationImport () {
     If (Test-Path ("$scriptPath\config.xml")) {
         Return Import-Clixml -Path "$scriptPath\config.xml"
     } else {
-        Return "Error"
+        Return "Error gathering configuration information from xml file"
     }
 }
 
@@ -58,7 +58,7 @@ $farmIndexThreshhold = $configInfo.farmIndexThreshhold
 $farmSessionThreshhold = $configInfo.farmSessionThreshhold
 $dashboardBackupTime = $configInfo.dashboardBackupTime
 $dashboardRetention = $configInfo.dashboardRetention
-$scriptRunInterval = New-TimeSpan -Minutes $configInfo.ScriptRunInterval
+$scriptRunInterval = New-TimeSpan -Minutes $configInfo.scriptRunInterval
 $LogNumberOfDays = $configInfo.LogNumberOfDays
 $logLocation = $configInfo.logLocation 
 $forceUserLogoff = $configInfo.forceUserLogoff    
@@ -97,6 +97,15 @@ $timesObj = [PSCustomObject]@{
 
 #Load Citrix Snap-ins
 Add-PSSnapin Citrix*
+
+#Function to parse log file and pull out any errors to be populated into the Dashboard
+Function GatherErrors() {
+    #Check for the existence of the latest logfile
+    if(test-path $(Get-ChildItem -Path "$logLocation\*.log" | Sort LastWriteTime | Select -Top 1 )) {
+        $logcontent = Get-Content $(Get-ChildItem -Path "$logLocation\*.log" | Sort LastWriteTime | Select -Top 1 )
+        # -Regex Filter ^.*ERROR.*$
+    }
+}
 
 #Function to generate Dashboards
 Function GenerateDashboard() {
