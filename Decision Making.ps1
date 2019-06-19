@@ -265,11 +265,11 @@ Function CircularDashboard() {
             Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
         }
 
-        If ($htmlFilesCopied.count -eq $retention) {            
+        If ($htmlFilesCopied.count -ge $retention) {            
             #Get all log files in the log folder with .log extension, select the oldest ones past the specified retention number and remove them
             
             #Check how many log files we have
-            If ($htmlFiles.count -gt $retention) {
+            If ($htmlFiles.count -ge $retention) {
                 #Calculate files to remove
                 $htmlFiles.count  
                 $filesToRemove = ($htmlFiles) | Sort-Object CreationTime | Select-Object -First $($htmlFiles.count - $retention)
@@ -279,7 +279,7 @@ Function CircularDashboard() {
                     WriteLog -Message "Older dashboard files removed $file" -Level Info
                 }
             }
-            If ($jscriptFiles.count -gt $retention) {
+            If ($jscriptFiles.count -ge $retention) {
                 #Calculate files to remove
                 $jscriptFiles.count
                 $filesToRemove = ($jscriptFiles) | Sort-Object CreationTime | Select-Object -First $($jscriptFiles.count - $retention)
