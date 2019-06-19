@@ -100,11 +100,14 @@ Add-PSSnapin Citrix*
 
 #Function to parse log file and pull out any errors to be populated into the Dashboard
 Function GatherErrors() {
-    #Check for the existence of the latest logfile
-    if(test-path $(Get-ChildItem -Path "$logLocation\*.log" | Sort LastWriteTime | Select -Top 1 )) {
-        $logcontent = Get-Content $(Get-ChildItem -Path "$logLocation\*.log" | Sort LastWriteTime | Select -Top 1 )
-        # -Regex Filter ^.*ERROR.*$
+    #Log folder
+    $currentLog = Get-ChildItem -Path "$(Split-Path -Path $logLocation)\*.log" | Sort LastWriteTime -Descending | Select -First 1 
+        #Check for the existence of the latest logfile
+    if(test-path $currentLog) {
+        $logcontent = Get-Content $currentLog
+        $allErrors = $logcontent | Where-Object {$_.ToString() -match '^.*ERROR.*$'}
     }
+    return $allErrors
 }
 
 #Function to generate Dashboards
@@ -206,6 +209,7 @@ Function GenerateDashboard() {
     $HTML = $HTML.Replace('&lt;MEMThresh&gt;',$farmMemoryThreshhold)
     $HTML = $HTML.Replace('&lt;INDThresh&gt;',$farmIndexThreshhold)
     $HTML = $HTML.Replace('&lt;SESSThresh&gt;',$farmSessionThreshhold)
+    $HTML = $HTML.Replace('&lt;ErrorBar&gt;',$(GatherErrors))
 
     $HTML | Set-Content "$scriptPath\Dashboard\Dashboard.html"
 
