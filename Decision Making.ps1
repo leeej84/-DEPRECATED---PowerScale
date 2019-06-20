@@ -107,7 +107,11 @@ Function GatherErrors() {
         $logcontent = Get-Content $currentLog
         $allErrors = $logcontent | Where-Object {$_.ToString() -match '^.*ERROR.*$'}
     }
-    return $allErrors
+    if ($allErrors) {
+        return $allErrors
+    } else {
+        return "No Errors Recorded"
+    }
 }
 
 #Function to generate Dashboards
@@ -279,8 +283,9 @@ Function CircularDashboard() {
         }
 
         If ($htmlFilesCopied.count -ge $retention) {            
-            #Get all log files in the log folder with .log extension, select the oldest ones past the specified retention number and remove them
-            
+            #Remove older JSON files
+            Get-ChildItem -Path "$jsonPath\*.json" | Remove-Item
+
             #Check how many log files we have
             If ($htmlFiles.count -ge $retention) {
                 #Calculate files to remove
