@@ -244,21 +244,21 @@ Function GenerateDashboard() {
 #Function to Update Dashboard File Navigation Links
 Function UpdateDashboardNavigation {
     #Get a list of all html files in the Dashboard folder
-    $htmlFiles = Get-ChildItem -Path $dashPath *.html | Sort-Object CreationTime
+    $htmlFiles = Get-ChildItem -Path ("$scriptPath\Dashboard\Dashboard-*.html") | Sort-Object Name
+
+    #Create first link in HTML Nav links
+    $htmlNav="<A HREF=Dashboard.html>Current</A>&nbsp;&nbsp;"
 
     #Loop to generate html text
-    $htmlNav = foreach ($htmlFile in $htmlFiles) {
-        if ($htmlFile.Name -eq "Dashboard.html") {
-            "<A HREF=$($htmlFile.Name)>Current</A>"
-        } else {
-            "<A HREF=`"$($htmlFile.Name)`">$($htmlFile.CreationTime.ToShortDateString())</A>"
+    foreach ($htmlFile in $htmlFiles) {        
+            $htmlNav = $htmlNav + "<A HREF=`"$($htmlFile.Name)`">$($($($htmlFile.Name).Replace('Dashboard-','')).replace('.html',''))</A>&nbsp;&nbsp;"
         }
-    }
 
-    $htmlNav
     foreach ($htmlFile in $htmlFiles) {
         $(Get-Content -Path $htmlFile.FullName) -replace '(?<=<nav>).*?(?=</nav)', $htmlNav | Set-Content -Path $htmlFile.FullName
     }
+
+    $(Get-Content -Path "$dashPath\Dashboard.html") -replace '(?<=<nav>).*?(?=</nav)', $htmlNav | Set-Content -Path "$dashPath\Dashboard.html"
 }
 
 #Function to control Dashboard retention
@@ -285,11 +285,20 @@ Function CircularDashboard() {
         #Find all HTML files
         $htmlFiles = Get-ChildItem ("$scriptPath\Dashboard\*.html") | Sort-Object CreationTime
         #Find all javascript files
-        $jscriptFiles = Get-ChildItem ("$scriptPath\Dashboard\*.js") -Exclude "chart.min.js" | Sort-Object CreationTime
+        $jscriptFiles = Get-ChildItem ("$scriptPath\Dashboard\*.js") -Exclude "*chart.min.js*" | Sort-Object CreationTime
         #Find all currently backed up Dashboard files
         $htmlFilesCopied = Get-ChildItem ("$scriptPath\Dashboard\Dashboard-*.html") | Sort-Object CreationTime
         
+        #Write to log, files found
+        WriteLog -Message "$($htmlFilesCopied.count) html files found" -Level Info
+        WriteLog -Message "$($jscriptFiles.count) js files found" -Level Info
+        WriteLog -Message "Number of dashboards to retain $retention" -Level Info
+
+        #Trigger retention to create the backup of the dashboard
         If ($htmlFilesCopied.count -lt $retention) {
+            #Log out that a new dashboard in being generated
+            WriteLog -Message "New Dashboard being generated as we are not over the retention amount of $retention" -Level Info
+
             #Remove older JSON files
             Get-ChildItem -Path "$jsonPath\*.json" | Remove-Item
 
@@ -301,31 +310,47 @@ Function CircularDashboard() {
             Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
         }
 
-        If ($htmlFilesCopied.count -gt $retention) {            
+        #There are already enough dashboards, remove some of the old ones
+        If ($htmlFilesCopied.count -ge $retention) {    
+            #Log out that the retention period is being triggered
+            WriteLog -Message "Existing Dashboard being recycled as we are over the retention amount of $retention with $($htmlFilesCopied.count)" -Level Info
+            
             #Remove older JSON files
             Get-ChildItem -Path "$jsonPath\*.json" | Remove-Item
 
             #Check how many log files we have
-            If ($htmlFiles.count -gt $retention) {
-                #Calculate files to remove
-                $htmlFiles.count  
-                $filesToRemove = ($htmlFiles) | Sort-Object CreationTime | Select-Object -First $($htmlFiles.count - $retention)
-                $filesToRemove
+            If ($htmlFiles.count -ge $retention) {
+                #Calculate files to remove             
+                $filesToRemove = $htmlFiles | Sort-Object CreationTime | Select-Object -First $($htmlFiles.count - $retention)
+                WriteLog -Message "There are $($htmlFiles.count) dashboard backups and we want $retention, deleting $($htmlFiles.count - $retention)" -Level Info
                 foreach ($file in $filesToRemove) {
                     $file | Remove-Item               
                     WriteLog -Message "Older dashboard files removed $file" -Level Info
                 }
             }
-            If ($jscriptFiles.count -gt $retention) {
+            If ($jscriptFiles.count -ge $retention) {
                 #Calculate files to remove
-                $jscriptFiles.count
                 $filesToRemove = ($jscriptFiles) | Sort-Object CreationTime | Select-Object -First $($jscriptFiles.count - $retention)
-                $filesToRemove
+                WriteLog -Message "There are $($jscriptFiles.count) dashboard backups and we want $retention, deleting $($jscriptFiles.count - $retention)" -Level Info
                 foreach ($file in $filesToRemove) {
                     $file | Remove-Item               
                     WriteLog -Message "Older javascript files removed $file" -Level Info
                 }
             }
+
+            #Now create a new Dashboard as we've recycled the old one
+            WriteLog -Message "Dashboard being generated as we have just recycled the last one" -Level Info
+
+            #Remove older JSON files
+            Get-ChildItem -Path "$jsonPath\*.json" | Remove-Item
+
+            #Grab html file contents and make replacements before renaming
+            (Get-Content -Path "$scriptPath\Dashboard\Dashboard.html").Replace("script.js","script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js") | Set-Content -Path "$scriptPath\Dashboard\Dashboard.html"
+            
+            #Create a backup of the current dashboard
+            Rename-Item -Path "$scriptPath\Dashboard\Dashboard.html" -NewName "Dashboard-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).html"
+            Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
+
             WriteLog -Message "Completed Circular Dashboard Management" -Level Info
         }
     } 
