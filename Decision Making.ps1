@@ -95,22 +95,22 @@ $jsonFileTable = "times.json","machinesOn.json","machinesScaled.json","machinesM
 #Get current date in correct format
 $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
 
-#Write out the time for testing purposes
-Write-Host $inputTime
-Start-Sleep -seconds 10
-#Setup a time object for comparison
-$timesObj = [PSCustomObject]@{
-    startTime = [datetime]::ParseExact($("$($dateNow) $($businessStartTime)"), "dd/MM/yy HH:mm", $null)
-    endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
-    backupTime = [datetime]::ParseExact($("$($dateNow) $($dashboardBackupTime)"), "dd/MM/yy HH:mm", $null)
-    timeNow = if ($inputTime) {
-        [datetime]::ParseExact($inputTime, "dd/MM/yyyy HH:mm", $null)
-    } else {
-        #Takes the current time
-        $(Get-Date)
-        #Set a specific time for testing
-        #$([datetime]::ParseExact("26/06/2019 08:12", "dd/MM/yyyy HH:mm", $null))
-        #timeNow = $([datetime]::ParseExact("26/05/19 09:00", "dd/MM/yy HH:mm", $null))
+#Setup a time object for comparison taking into account the input time for testing 
+if ($inputTime) {  
+    $inputDate = $([datetime]::ParseExact("$inputTime", "dd/MM/yyyy HH:mm", $null)).ToShortDateString()
+    
+    $timesObj = [PSCustomObject]@{
+        startTime = [datetime]::ParseExact($("$($inputDate) $($businessStartTime)"), "dd/MM/yyyy HH:mm", $null)
+        endTime = [datetime]::ParseExact($("$($inputDate) $($businessCloseTime)"), "dd/MM/yyyy HH:mm", $null)
+        backupTime = [datetime]::ParseExact($("$($inputDate) $($dashboardBackupTime)"), "dd/MM/yyyy HH:mm", $null)
+        timeNow = $([datetime]::ParseExact("$inputTime", "dd/MM/yyyy HH:mm", $null))
+    }
+} else {
+    $timesObj = [PSCustomObject]@{
+        startTime = [datetime]::ParseExact($("$($dateNow) $($businessStartTime)"), "dd/MM/yy HH:mm", $null)
+        endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
+        backupTime = [datetime]::ParseExact($("$($dateNow) $($dashboardBackupTime)"), "dd/MM/yy HH:mm", $null)
+        timeNow = $(Get-Date)
     }
 }
 
@@ -1370,8 +1370,10 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
 #Generate the Dashboard Files
 GenerateDashboard
 
-#If the time is inside the backup dashboard window time taking into account the script run interval then perform circular dashboard management
-If ((($timesObj.timeNow -ge $($timesObj.backupTime)) -and ($timesObj.timeNow -le $($timesObj.backupTime + $scriptRunInterval)))) {
+If ((($($timesObj.timeNow) -ge $($timesObj.backupTime)) -and ($($timesObj.timeNow) -le $($($timesObj.backupTime) + $scriptRunInterval)))) {
+    Write-Host "Circular Dashboard Maintenance Triggered"
+    Write-Host "Dashboard Backup Time:$($timesObj.backupTime) - Time Now: $($timesObj.timeNow) - Dashboard Backup Window: $($timesObj.backupTime + $scriptRunInterval)"
+    WriteLog -Message "Circular Dashboard Maintenance Triggered" -Level Info -NoClobber
     CircularDashboard -retention $dashboardRetention
 }
 
