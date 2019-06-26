@@ -8,6 +8,16 @@
 #Enterprise users:  This script is recommended for users currently utilising smart scale to power up and down VDA's,
 # Smart Scale is due to be deprecated in May 2019
 
+#Input command for testing purposes, to supply a time
+[CmdletBinding()] 
+    Param 
+    ( 
+        [Parameter(Mandatory=$false, HelpMessage = "Specify a testing time for data generation")] 
+        [ValidateNotNullOrEmpty()] 
+        [Alias("Time")] 
+        $inputTime        
+    )
+
 #Get current script folder
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 $scriptPath
@@ -85,14 +95,23 @@ $jsonFileTable = "times.json","machinesOn.json","machinesScaled.json","machinesM
 #Get current date in correct format
 $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
 
+#Write out the time for testing purposes
+Write-Host $inputTime
+Start-Sleep -seconds 10
 #Setup a time object for comparison
 $timesObj = [PSCustomObject]@{
     startTime = [datetime]::ParseExact($("$($dateNow) $($businessStartTime)"), "dd/MM/yy HH:mm", $null)
     endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
     backupTime = [datetime]::ParseExact($("$($dateNow) $($dashboardBackupTime)"), "dd/MM/yy HH:mm", $null)
-    timeNow = $(Get-Date)
-    #Set a specific time for testing
-    #timeNow = $([datetime]::ParseExact("26/05/19 09:00", "dd/MM/yy HH:mm", $null))
+    timeNow = if ($inputTime) {
+        [datetime]::ParseExact($inputTime, "dd/MM/yyyy HH:mm", $null)
+    } else {
+        #Takes the current time
+        $(Get-Date)
+        #Set a specific time for testing
+        #$([datetime]::ParseExact("26/06/2019 08:12", "dd/MM/yyyy HH:mm", $null))
+        #timeNow = $([datetime]::ParseExact("26/05/19 09:00", "dd/MM/yy HH:mm", $null))
+    }
 }
 
 #Load Citrix Snap-ins
@@ -282,12 +301,12 @@ Function CircularDashboard() {
             Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
         }
 
-        If ($htmlFilesCopied.count -ge $retention) {            
+        If ($htmlFilesCopied.count -gt $retention) {            
             #Remove older JSON files
             Get-ChildItem -Path "$jsonPath\*.json" | Remove-Item
 
             #Check how many log files we have
-            If ($htmlFiles.count -ge $retention) {
+            If ($htmlFiles.count -gt $retention) {
                 #Calculate files to remove
                 $htmlFiles.count  
                 $filesToRemove = ($htmlFiles) | Sort-Object CreationTime | Select-Object -First $($htmlFiles.count - $retention)
@@ -297,7 +316,7 @@ Function CircularDashboard() {
                     WriteLog -Message "Older dashboard files removed $file" -Level Info
                 }
             }
-            If ($jscriptFiles.count -ge $retention) {
+            If ($jscriptFiles.count -gt $retention) {
                 #Calculate files to remove
                 $jscriptFiles.count
                 $filesToRemove = ($jscriptFiles) | Sort-Object CreationTime | Select-Object -First $($jscriptFiles.count - $retention)
