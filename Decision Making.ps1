@@ -402,7 +402,7 @@ Function WriteLog() {
         # Format Date for our Log File
         $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-         # Write message to error, warning, or verbose pipeline and specify $LevelText 
+         # Write message to error, warning, or verbose pipeline and specify $LevelText
         switch ($Level) {
             'Error' {
                 Write-Error $Message
@@ -430,7 +430,7 @@ Function CircularLogging() {
 
     Begin
     {
-        # Set VerbosePreference to Continue so that verbose messages are displayed. 
+        # Set VerbosePreference to Continue so that verbose messages are displayed.
         $VerbosePreference = 'Continue'
     }
     Process
@@ -489,7 +489,7 @@ Function SendEmail() {
 
     Begin
     {
-        # Set VerbosePreference to Continue so that verbose messages are displayed. 
+        # Set VerbosePreference to Continue so that verbose messages are displayed.
         $VerbosePreference = 'Continue'
     }
     Process
@@ -518,28 +518,28 @@ Function SendEmail() {
             "Attachment file $attachment exists"
             # Send email message with attachment
             Send-MailMessage -SmtpServer $smtpServer -From $fromAddress -To $toAddress -Subject $("$subject - $Level") -Body "$FormattedDate $LevelText $Message" -Attachments $attachment
-            WriteLog -Message "Sending out an email with an attachment." -Level Info 
+            WriteLog -Message "Sending out an email with an attachment." -Level Info
         } else {
             # Send email message without attachment
             Send-MailMessage -SmtpServer $smtpServer -From $fromAddress -To $toAddress -Subject $("$subject - $Level") -Body "$FormattedDate $LevelText $Message"
-            WriteLog -Message "Sending out an email without an attachment, attachment did not exist." -Level Warn 
-        }        
-    } 
-    End 
-    { 
-    } 
+            WriteLog -Message "Sending out an email without an attachment, attachment did not exist." -Level Warn
+        }
+    }
+    End
+    {
+    }
 }
 
 #Function to check if its a weekday
 Function IsWeekDay() {
-    [CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$true, HelpMessage = "The date that needs to be compared to weekdays")] 
-        [ValidateNotNullOrEmpty()] 
-        [datetime]$date        
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "The date that needs to be compared to weekdays")]
+        [ValidateNotNullOrEmpty()]
+        [datetime]$date
     )
-    
+
     #Weekdays
     $weekdays = "Monday","Tuesday","Wednesday","Thursday","Friday"
     #See if the current day of the week sits inside of any other weekdays, returns true or false
@@ -559,66 +559,66 @@ Function TimeCheck($timeObj) {
 
 #Function to check the level of machines based on current time and day
 Function levelCheck() {
-    [CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$true, HelpMessage = "Number of machines currently live.")]    
-        [ValidateNotNullOrEmpty()] 
-        [int]$currentMachines, 
- 
-        [Parameter(Mandatory=$true, HelpMessage = "Number of machines to scale up or down to.")]   
-        [ValidateNotNullOrEmpty()]      
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "Number of machines currently live.")]
+        [ValidateNotNullOrEmpty()]
+        [int]$currentMachines,
+
+        [Parameter(Mandatory=$true, HelpMessage = "Number of machines to scale up or down to.")]
+        [ValidateNotNullOrEmpty()]
         [int]$targetMachines
     )
-        
+
         $scalingFactor = 0
         #Perform some calculation for performance scaling
         If ($machineScaling -eq "CPU") {
             If ($($overallPerformance.overallCPU.average) -gt $farmCPUThreshhold) {
-                $scalingFactor = 1 
+                $scalingFactor = 1
                 WriteLog -Message "CPU Threshhold of $farmCPUThreshhold is lower than current farm average of $($overallPerformance.overallCPU.average), we need to spin up an additional machine" -Level Info -Verbose   
-            }            
+            }
         } elseif ($machineScaling -eq "Memory") {
             If ($($overallPerformance.overallMemory.Average) -gt $farmMemoryThreshhold) {
-                $scalingFactor = 1    
+                $scalingFactor = 1
                 WriteLog -Message "Memory Threshhold of $farmMemoryThreshhold is lower than current farm average of $($overallPerformance.overallMemory.Average), we need to spin up an additional machine" -Level Info -Verbose   
             }
         } elseif ($machineScaling -eq "Index") {
             If ($($overallPerformance.overallIndex.Average) -gt $farmIndexThreshhold) {
-                $scalingFactor = 1    
+                $scalingFactor = 1
                 WriteLog -Message "Index Threshhold of $farmIndexThreshhold is lower than current farm average of $($overallPerformance.overallIndex.Average), we need to spin up an additional machine" -Level Info -Verbose   
             }
         } elseif ($machineScaling -eq "Sessions") {
                 If ($($overallPerformance.overallSession.Average) -gt $farmSessionThreshhold) {
-                    $scalingFactor = 1 
+                    $scalingFactor = 1
                     WriteLog -Message "Session Threshhold of $farmSessionThreshhold is lower than current farm average of $($overallPerformance.overallSession.Average), we need to spin up an additional machine" -Level Info -Verbose      
                 }
         } else {
             WriteLog -Message "There is an error in the config for the machine scaling variable as no case was recognised for sclaing - current variable = $machineScaling" -Level Error -Verbose
         }
-    
+
         #Check the supplied machines levels against what is required
         #Return an object with the action required (Startup, Shutdown, Nothing and the amount of machines necessary to do it to)
         If (($currentMachines -gt $targetMachines) -and ($scalingFactor -eq 0)) {
-            $action = [PSCustomObject]@{        
+            $action = [PSCustomObject]@{
                 Task = "Shutdown"
                 Number = $($currentMachines - $targetMachines)
             }
             WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
         } elseif ($currentMachines -lt $targetMachines) {
-            $action = [PSCustomObject]@{        
+            $action = [PSCustomObject]@{
                 Task = "Startup"
                 Number = $($targetMachines - $currentMachines)
             }
             WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
         } elseif (($currentMachines -ge $targetMachines)) {
-            $action = [PSCustomObject]@{        
+            $action = [PSCustomObject]@{
                 Task = "Scaling"
                 Number = 0 + $scalingFactor
             }
             WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to perform Scaling calculations" -Level Info -Verbose
-            
-        }        
+
+        }
         Return $action
 }
 
