@@ -638,17 +638,17 @@ Function brokerMachineStates() {
 
 #Function to get a list of all sessions and current state from Broker
 Function brokerUserSessions() {
-    
-    [CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$false, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]        
+
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$false, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]
         [string]$machinePrefix,
-        
-        [Parameter(Mandatory=$false, HelpMessage = "Specifies machine name to get sessions from")]      
+
+        [Parameter(Mandatory=$false, HelpMessage = "Specifies machine name to get sessions from")]
         [string]$machineName
     )
-    
+
     If (!$machineName) {
         Return Get-BrokerSession -AdminAddress $citrixController -MaxRecordCount 10000 | Where-Object {((($_.MachineName).Replace("\","\\")) -match $machinePrefix)}
     } else {
@@ -658,20 +658,20 @@ Function brokerUserSessions() {
 
 #Function to Shutdown or TurnOn a machine - TurnOn, TurnOff, Shutdown, Reset, Restart, Suspend, Resume with or without delay
 Function brokerAction() {
-    
-    [CmdletBinding()] 
-    Param 
-    (  
-        [Parameter(Mandatory=$true, HelpMessage = "The name of the specific VDA that you are powering down or up")]   
-        [ValidateNotNullOrEmpty()]      
-        [string]$machineName,  
 
-        [Parameter(Mandatory=$true, HelpMessage = "Which machine action you are perfmoring - TurnOn, TurnOff, Shutdown, Reset, Restart, Suspend, Resume")]   
-        [ValidateSet("TurnOn", "TurnOff", "Shutdown", "Reset", "Restart", "Suspend", "Resume")]      
-        [string]$machineAction, 
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "The name of the specific VDA that you are powering down or up")]
+        [ValidateNotNullOrEmpty()]
+        [string]$machineName,
 
-        [Parameter(Mandatory=$false, HelpMessage = "[Optional] The delay in minutes of how long the controller should wait before executing the command (missing this parameter makes the execution immediate)")]   
-        [int]$delay        
+        [Parameter(Mandatory=$true, HelpMessage = "Which machine action you are perfmoring - TurnOn, TurnOff, Shutdown, Reset, Restart, Suspend, Resume")]
+        [ValidateSet("TurnOn", "TurnOff", "Shutdown", "Reset", "Restart", "Suspend", "Resume")]
+        [string]$machineAction,
+
+        [Parameter(Mandatory=$false, HelpMessage = "[Optional] The delay in minutes of how long the controller should wait before executing the command (missing this parameter makes the execution immediate)")]
+        [int]$delay
     )
     #Check if a delay has been sent or not and execute the relevant command based on this
     If (-not $null -eq $delay) {
@@ -682,7 +682,7 @@ Function brokerAction() {
         WriteLog -Message "Machine action for $machineName - $machineAction immediately" -Level Info
         If (!$testingOnly) {New-BrokerHostingPowerAction -AdminAddress $citrixcontroller -MachineName $machineName -Action $machineAction}
     }
-    
+
     #Remove the scaling tag if one exists
     if (Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $machineName).uid) {
         WriteLog -Message "Remove Scaling tag from $machineName" -Level Info
@@ -691,16 +691,16 @@ Function brokerAction() {
 }
 
 Function maintenance() {
-    [CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$true, HelpMessage = "The machine object that will be placed into maintenance mode")]   
-        [ValidateNotNullOrEmpty()]      
-        [object]$machine,  
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "The machine object that will be placed into maintenance mode")]
+        [ValidateNotNullOrEmpty()]
+        [object]$machine,
 
-        [Parameter(Mandatory=$true, HelpMessage = "Specify whether maintenance mode should be On or Off")]   
-        [ValidateSet("On", "Off")]      
-        [string]$maintenanceMode     
+        [Parameter(Mandatory=$true, HelpMessage = "Specify whether maintenance mode should be On or Off")]
+        [ValidateSet("On", "Off")]
+        [string]$maintenanceMode
     )
     #This set a machine or machines in maintenance mode
     If ($maintenanceMode -eq "On") {
@@ -722,11 +722,11 @@ Function maintenance() {
 
 #Function to receive a list of sessions in an object and logoff all the disconnected sessions
 Function sessionLogOff() {
-    [CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$true, HelpMessage = "List of disconnected sessions to be logged off")]    
-        [ValidateNotNullOrEmpty()] 
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "List of disconnected sessions to be logged off")]
+        [ValidateNotNullOrEmpty()]
         [object]$sessions
     )
     #Do some logging off of disconnected sessions
@@ -739,30 +739,30 @@ Function sessionLogOff() {
 
 #Function that sends a message to active users that are running on machines and then log them off
 Function sendMessage () {
-    [CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$true, HelpMessage = "Message interval one")]    
-        [ValidateNotNullOrEmpty()] 
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "Message interval one")]
+        [ValidateNotNullOrEmpty()]
         [int]$firstMessageInterval,
 
-        [Parameter(Mandatory=$true, HelpMessage = "Message one")]    
-        [ValidateNotNullOrEmpty()] 
+        [Parameter(Mandatory=$true, HelpMessage = "Message one")]
+        [ValidateNotNullOrEmpty()]
         [string]$firstMessage,
 
-        [Parameter(Mandatory=$true, HelpMessage = "Message interval two")]    
-        [ValidateNotNullOrEmpty()] 
+        [Parameter(Mandatory=$true, HelpMessage = "Message interval two")]
+        [ValidateNotNullOrEmpty()]
         [int]$secondMessageInterval,
 
-        [Parameter(Mandatory=$true, HelpMessage = "Message one")]    
-        [ValidateNotNullOrEmpty()] 
+        [Parameter(Mandatory=$true, HelpMessage = "Message one")]
+        [ValidateNotNullOrEmpty()]
         [string]$secondMessage,
 
-        [Parameter(Mandatory=$true, HelpMessage = "List of sessions to message")]    
-        [ValidateNotNullOrEmpty()] 
+        [Parameter(Mandatory=$true, HelpMessage = "List of sessions to message")]
+        [ValidateNotNullOrEmpty()]
         [object]$sessions
     )
-    
+
     #Sending the initial message for users to logoff
     WriteLog -Message "Sending message to users to log off - $($firstMessageInterval) minute warning on" -Level Info
     If (!$testingOnly) {Send-BrokerSessionMessage -AdminAddress $citrixController -InputObject $sessions -MessageStyle "Information" -Title "Server Scheduled Shutdown" -Text "$firstMessage $(" - A reminder will be sent in $firstMessageInterval") mins"}
@@ -780,27 +780,27 @@ Function sendMessage () {
 }
 
 Function performanceAnalysis () {
-    [CmdletBinding()] 
+    [CmdletBinding()]
 
     param(
-    [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]   
-    [ValidateNotNullOrEmpty()]     
+    [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]
+    [ValidateNotNullOrEmpty()]
     [string]$machinePrefix,
 
-    [Parameter(Mandatory=$true, HelpMessage = "Interval between performance samples")]   
-    [ValidateNotNullOrEmpty()]     
+    [Parameter(Mandatory=$true, HelpMessage = "Interval between performance samples")]
+    [ValidateNotNullOrEmpty()]
     [int]$performanceInterval,
 
-    [Parameter(Mandatory=$true, HelpMessage = "Number of performance samples to gather")]   
-    [ValidateNotNullOrEmpty()]     
+    [Parameter(Mandatory=$true, HelpMessage = "Number of performance samples to gather")]
+    [ValidateNotNullOrEmpty()]
     [int]$performanceSamples,
 
-    [Parameter(Mandatory=$true, HelpMessage = "Export location for individual machine performance details")]   
-    [ValidateNotNullOrEmpty()]     
+    [Parameter(Mandatory=$true, HelpMessage = "Export location for individual machine performance details")]
+    [ValidateNotNullOrEmpty()]
     [string]$exportLocation,
 
-    [Parameter(Mandatory=$true, HelpMessage = "Export location for overall average machine performance details")]   
-    [ValidateNotNullOrEmpty()]     
+    [Parameter(Mandatory=$true, HelpMessage = "Export location for overall average machine performance details")]
+    [ValidateNotNullOrEmpty()]
     [string]$overallExportLocation
 )
 
@@ -824,9 +824,9 @@ $results = ""
 
 #Loop through each machine obtained from the broker and gathers its information for scaling puroposes
 ForEach ($computer in $computers) {
-    #Check if we have a wmi account to use, if we do check access for each machine, otherwise run in current user context    
-    If  (-not ([String]::IsNullOrEmpty($wmiServiceAccount))) {  
-        #Only gather performance metrics for machines that we have WMI access to 
+    #Check if we have a wmi account to use, if we do check access for each machine, otherwise run in current user context
+    If  (-not ([String]::IsNullOrEmpty($wmiServiceAccount))) {
+        #Only gather performance metrics for machines that we have WMI access to
         WriteLog -Message "Starting performance measurement job for $computer using specified credentials" -Level Info -Verbose
         If  ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer -Credential $(WMIDetailsImport))) {
             Start-Job -Name $computer -Credential $(WMIDetailsImport) -Verbose -ScriptBlock {
@@ -838,8 +838,8 @@ ForEach ($computer in $computers) {
                 )
 
                 #Load the Citrix snap-ins
-                Add-PSSnapin Citrix*    
-                
+                Add-PSSnapin Citrix*
+
                 #Create a custom object to store the results
                 $results = [PSCustomObject]@{
                 Machine = $computer
@@ -847,18 +847,18 @@ ForEach ($computer in $computers) {
                 Memory = [int](Get-Counter -Counter '\Memory\% Committed Bytes In Use' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
                 LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
                 Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
-                } 
-                
+                }
+
                 #Write out the results for this computer only if the CPU and Memory calculations worked
                 if ($results.CPU -eq 0 -or $results.memory -eq 0) {
                     $results
                 } else {
                     $results
                 }
-            
+
             } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
         }
-    } elseif ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer)) { 
+    } elseif ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer)) {
         WriteLog -Message "Starting performance measurement job for $computer using script run credentials" -Level Info -Verbose
         Start-Job -Name $computer -Verbose -ScriptBlock {
         param (
@@ -869,8 +869,8 @@ ForEach ($computer in $computers) {
         )
 
         #Load the Citrix snap-ins
-        Add-PSSnapin Citrix*    
-        
+        Add-PSSnapin Citrix*
+
         #Create a custom object to store the results
         $results = [PSCustomObject]@{
         Machine = $computer
@@ -878,27 +878,27 @@ ForEach ($computer in $computers) {
         Memory = [int](Get-Counter -Counter '\Memory\% Committed Bytes In Use' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
         LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
         Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
-        } 
-        
+        }
+
         #Write out the results for this computer only if the CPU and Memory calculations worked
         if ($results.CPU -eq 0 -or $results.memory -eq 0) {
             $results
         } else {
             $results
         }
-    
+
         } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
     } else {
         WriteLog -Message "There has been an error connecting to $computer to gather performance metrics" -Level Error -Verbose
     }
 }
-    
+
 #Loop through all running jobs every 5 seconds to see if complete, if they are; receive the jobs and store the metrics
 $Metrics = Do {
     $runningJobs = Get-Job | Where-Object {$_.State -ne "Completed"}
     $completedJobs = Get-Job |  Where-Object {$_.State -eq "Completed"}
     ForEach ($job in $completedJobs) {
-        Receive-Job $job | Select-Object * -ExcludeProperty RunspaceId 
+        Receive-Job $job | Select-Object * -ExcludeProperty RunspaceId
         Remove-Job $job
     }
 
@@ -919,7 +919,7 @@ $Metrics
 #Custom object for overall averages
 $overallAverage = [PSCustomObject]@{
     overallCPU = $Metrics | Measure-Object -Property CPU -Average -Minimum -Maximum
-    overallMemory = $Metrics | Measure-Object -Property Memory -Average -Minimum -Maximum -Sum  
+    overallMemory = $Metrics | Measure-Object -Property Memory -Average -Minimum -Maximum -Sum
     overallIndex = $Metrics | Measure-Object -Property LoadIndex -Average -Minimum -Maximum
     overallSession = $Metrics | Measure-Object -Property Sessions -Average -Minimum -Maximum
 }
@@ -934,18 +934,18 @@ Return $overallAverage
 }
 
 #Force user logoffs out of hours for the specified number of machines
-Function forceLogoffShutdown () {    
-    [CmdletBinding()] 
+Function forceLogoffShutdown () {
+    [CmdletBinding()]
 
     param(
-    [Parameter(Mandatory=$true, HelpMessage = "Number of machines to power off")]   
-    [ValidateNotNullOrEmpty()]     
+    [Parameter(Mandatory=$true, HelpMessage = "Number of machines to power off")]
+    [ValidateNotNullOrEmpty()]
     [int]$numberMachines
 
     )
-    
+
     WriteLog -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
-    $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($numberMachines) | Sort-Object -Property SessionCount   
+    $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($numberMachines) | Sort-Object -Property SessionCount
     #For everymachine powered on up to the correct number, switch the poweroff
     foreach ($machine in $machinesToPowerOff) {
         #Set the machine in maintenance mode
@@ -953,7 +953,7 @@ Function forceLogoffShutdown () {
         If (!$testingOnly) { maintenance -machine $machine -maintenanceMode On }
         #Generate a list of sessions per machine
         $logoffSessions = $allUserSessions | Where-Object {$_.MachineName -eq $machine.MachineName}
-        WriteLog -Message "Found $($logOffSessions.UserName.Count) user sessions on $($machine.DNSName)"        
+        WriteLog -Message "Found $($logOffSessions.UserName.Count) user sessions on $($machine.DNSName)"
         #Start a job for each machine so we are not waiting
         If ($($logOffSessions.UserName.Count) -gt 0) {
             #Send a message to all users on the specific server
@@ -970,135 +970,135 @@ Function forceLogoffShutdown () {
                     $citrixController,
                     $machine
                     )
-                                    
+
                     #Load the Citrix snap-ins
-                    Add-PSSnapin Citrix* 
+                    Add-PSSnapin Citrix*
 
                     #Having to add the WriteLog Function into this
                     Function WriteLog() {
 
-                        [CmdletBinding()] 
-                        Param 
-                        ( 
-                            [Parameter(Mandatory=$true, HelpMessage = "The error message text to be placed into the log.")] 
-                            [ValidateNotNullOrEmpty()] 
-                            [Alias("LogContent")] 
-                            [string]$Message, 
-                    
-                            [Parameter(Mandatory=$false, HelpMessage = "The error level of the event.")] 
-                            [ValidateSet("Error","Warn","Info")] 
-                            [string]$Level="Info", 
-                            
-                            [Parameter(Mandatory=$false, HelpMessage = "Specify to not overwrite the previous log file.")]         
-                            [switch]$NoClobber 
-                        ) 
-                    
-                        Begin 
-                        { 
-                            # Set VerbosePreference to Continue so that verbose messages are displayed. 
-                            $VerbosePreference = 'Continue' 
-                        } 
-                        Process 
-                        { 
+                        [CmdletBinding()]
+                        Param
+                        (
+                            [Parameter(Mandatory=$true, HelpMessage = "The error message text to be placed into the log.")]
+                            [ValidateNotNullOrEmpty()]
+                            [Alias("LogContent")]
+                            [string]$Message,
+
+                            [Parameter(Mandatory=$false, HelpMessage = "The error level of the event.")]
+                            [ValidateSet("Error","Warn","Info")]
+                            [string]$Level="Info",
+
+                            [Parameter(Mandatory=$false, HelpMessage = "Specify to not overwrite the previous log file.")]
+                            [switch]$NoClobber
+                        )
+
+                        Begin
+                        {
+                            # Set VerbosePreference to Continue so that verbose messages are displayed.
+                            $VerbosePreference = 'Continue'
+                        }
+                        Process
+                        {
                             # append the date to the $path variable. It will also append .log at the end.
                             $DateForLogFileName = Get-Date -Format "yyyy-MM-dd"
                             $logLocation = $logLocation + "_" + $DateForLogFileName+".log"
-                    
-                            # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path. 
-                            If (!(Test-Path $logLocation)) { 
-                                Write-Verbose "Creating $logLocation." 
-                                New-Item $logLocation -Force -ItemType File 
-                                } 
-                    
-                            else { 
-                                # Nothing to see here yet. 
-                                } 
-                    
-                            # Format Date for our Log File 
-                            $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss" 
-                            
-                            # Write message to error, warning, or verbose pipeline and specify $LevelText 
-                            switch ($Level) { 
-                                'Error' { 
-                                    Write-Error $Message 
-                                    $LevelText = 'ERROR:' 
-                                    } 
-                                'Warn' { 
-                                    Write-Warning $Message 
-                                    $LevelText = 'WARNING:' 
-                                    } 
-                                'Info' { 
-                                    Write-Verbose $Message 
-                                    $LevelText = 'INFO:' 
-                                    } 
-                                } 
-                            
-                            # Write log entry to $Path 
-                            "$FormattedDate $LevelText $Message" | Out-File -FilePath $logLocation -Append 
-                        } 
-                        End 
-                        { 
-                        } 
+
+                            # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path.
+                            If (!(Test-Path $logLocation)) {
+                                Write-Verbose "Creating $logLocation."
+                                New-Item $logLocation -Force -ItemType File
+                                }
+
+                            else {
+                                # Nothing to see here yet.
+                                }
+
+                            # Format Date for our Log File
+                            $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+                            # Write message to error, warning, or verbose pipeline and specify $LevelText
+                            switch ($Level) {
+                                'Error' {
+                                    Write-Error $Message
+                                    $LevelText = 'ERROR:'
+                                    }
+                                'Warn' {
+                                    Write-Warning $Message
+                                    $LevelText = 'WARNING:'
+                                    }
+                                'Info' {
+                                    Write-Verbose $Message
+                                    $LevelText = 'INFO:'
+                                    }
+                                }
+
+                            # Write log entry to $Path
+                            "$FormattedDate $LevelText $Message" | Out-File -FilePath $logLocation -Append
+                        }
+                        End
+                        {
+                        }
                     }
-                    
+
                     #Having to add the sendMessage Function into this
                     Function sendMessage () {
-                        [CmdletBinding()] 
-                        Param 
-                        ( 
-                            [Parameter(Mandatory=$true, HelpMessage = "Message interval one")]    
-                            [ValidateNotNullOrEmpty()] 
+                        [CmdletBinding()]
+                        Param
+                        (
+                            [Parameter(Mandatory=$true, HelpMessage = "Message interval one")]
+                            [ValidateNotNullOrEmpty()]
                             [int]$firstMessageInterval,
-                    
-                            [Parameter(Mandatory=$true, HelpMessage = "Message one")]    
-                            [ValidateNotNullOrEmpty()] 
+
+                            [Parameter(Mandatory=$true, HelpMessage = "Message one")]
+                            [ValidateNotNullOrEmpty()]
                             [string]$firstMessage,
-                    
-                            [Parameter(Mandatory=$true, HelpMessage = "Message interval two")]    
-                            [ValidateNotNullOrEmpty()] 
+
+                            [Parameter(Mandatory=$true, HelpMessage = "Message interval two")]
+                            [ValidateNotNullOrEmpty()]
                             [int]$secondMessageInterval,
-                    
-                            [Parameter(Mandatory=$true, HelpMessage = "Message one")]    
-                            [ValidateNotNullOrEmpty()] 
+
+                            [Parameter(Mandatory=$true, HelpMessage = "Message one")]
+                            [ValidateNotNullOrEmpty()]
                             [string]$secondMessage,
-                    
-                            [Parameter(Mandatory=$true, HelpMessage = "List of sessions to message")]    
-                            [ValidateNotNullOrEmpty()] 
+
+                            [Parameter(Mandatory=$true, HelpMessage = "List of sessions to message")]
+                            [ValidateNotNullOrEmpty()]
                             [object]$sessions
                         )
-                        
+
                         #Sending the initial message for users to logoff
                         WriteLog -Message "Sending message to users to log off - $($firstMessageInterval) minute warning" -Level Info
                         If (!$testingOnly) {Send-BrokerSessionMessage -AdminAddress $citrixController -InputObject $sessions -MessageStyle "Information" -Title "Server Scheduled Shutdown" -Text "$firstMessage $(" - A reminder will be sent in $firstMessageInterval") mins"}
                         #Wait for the interval time
                         If (!$testingOnly) {start-sleep -seconds ($firstMessageInterval*60)}
-                    
+
                         #Sending the initial message for users to logoff
                         WriteLog -Message "Sending message to users to log off - $($secondMessageInterval) minute warning" -Level Info
                         If (!$testingOnly) {Send-BrokerSessionMessage -InputObject $sessions -MessageStyle "Critical" -Title "Server Scheduled Shutdown " -Text "$secondMessage $(" - Shutdown will occur in $secondMessageInterval") mins"}
                         #Wait for the interval time
                         If (!$testingOnly) {start-sleep -seconds ($secondMessageInterval*60)}
-                    
+
                         WriteLog -Message "Logging off all active user sessions after sending messages at $($firstMessageInterval) minutes and then $($secondMessageInterval) minutes" -Level Info
                         If (!$testingOnly) { $sessions | Stop-BrokerSession }
                     }
 
                     #Having to add the brokerAction Function into this
                     Function brokerAction() {
-    
-                        [CmdletBinding()] 
-                        Param 
-                        (  
-                            [Parameter(Mandatory=$true, HelpMessage = "The name of the specific VDA that you are powering down or up")]   
-                            [ValidateNotNullOrEmpty()]      
-                            [string]$machineName,  
-                    
-                            [Parameter(Mandatory=$true, HelpMessage = "Which machine action you are perfmoring - TurnOn, TurnOff, Shutdown, Reset, Restart, Suspend, Resume")]   
-                            [ValidateSet("TurnOn", "TurnOff", "Shutdown", "Reset", "Restart", "Suspend", "Resume")]      
-                            [string]$machineAction, 
-                    
-                            [Parameter(Mandatory=$false, HelpMessage = "[Optional] The delay in minutes of how long the controller should wait before executing the command (missing this parameter makes the execution immediate)")]   
-                            [int]$delay        
+
+                        [CmdletBinding()]
+                        Param
+                        (
+                            [Parameter(Mandatory=$true, HelpMessage = "The name of the specific VDA that you are powering down or up")]
+                            [ValidateNotNullOrEmpty()]
+                            [string]$machineName,
+
+                            [Parameter(Mandatory=$true, HelpMessage = "Which machine action you are perfmoring - TurnOn, TurnOff, Shutdown, Reset, Restart, Suspend, Resume")]
+                            [ValidateSet("TurnOn", "TurnOff", "Shutdown", "Reset", "Restart", "Suspend", "Resume")]
+                            [string]$machineAction,
+
+                            [Parameter(Mandatory=$false, HelpMessage = "[Optional] The delay in minutes of how long the controller should wait before executing the command (missing this parameter makes the execution immediate)")]
+                            [int]$delay
                         )
                         #Check if a delay has been sent or not and execute the relevant command based on this
                         If (-not $null -eq $delay) {
@@ -1114,22 +1114,22 @@ Function forceLogoffShutdown () {
                     sendMessage -firstMessageInterval $userLogoffFirstInterval -firstMessage $userLogoffFirstMessage -secondMessageInterval $userLogoffSecondInterval -secondMessage $userLogoffSecondMessage -sessions $logoffSessions
 
                     #Powerdown the VDA now all users have been messaged
-                    brokerAction -machineName $($machine.MachineName) -machineAction Shutdown 
-                } -ArgumentList $userLogoffFirstInterval, $userLogoffFirstMessage, $userLogoffSecondInterval, $userLogoffSecondMessage, $logoffSessions, $logLocation, $citrixController, $machine         
-            }         
+                    brokerAction -machineName $($machine.MachineName) -machineAction Shutdown
+                } -ArgumentList $userLogoffFirstInterval, $userLogoffFirstMessage, $userLogoffSecondInterval, $userLogoffSecondMessage, $logoffSessions, $logLocation, $citrixController, $machine
+            }
         } else {
             #Session count must be zero so shutdown the machine immediately
             WriteLog -Message "No sessions found on $($machine.DNSName), shutting down"
             brokerAction -machineName $($machine.MachineName) -machineAction Shutdown
         }
     }
-    
+
 #Loop until all running jobs are finished and all users have been messaged
 Do {
     $runningJobs = Get-Job | Where-Object {$_.State -ne "Completed"}
     $completedJobs = Get-Job |  Where-Object {$_.State -eq "Completed"}
     ForEach ($job in $completedJobs) {
-        Receive-Job $job | Select-Object * -ExcludeProperty RunspaceId 
+        Receive-Job $job | Select-Object * -ExcludeProperty RunspaceId
         Remove-Job $job                }
 
     Start-Sleep -Seconds 10
@@ -1145,17 +1145,17 @@ foreach ($machine in $machinesToPowerOff) {
 
 #Wait for user sessions for disconnect using idle disconnect timers and log them off
 Function LogoffShutdown () {
-    [CmdletBinding()] 
+    [CmdletBinding()]
 
     param(
-    [Parameter(Mandatory=$true, HelpMessage = "Number of machines to power off")]   
-    [ValidateNotNullOrEmpty()]     
+    [Parameter(Mandatory=$true, HelpMessage = "Number of machines to power off")]
+    [ValidateNotNullOrEmpty()]
     [int]$numberMachines
 
     )
 
     WriteLog -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
-    $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($numberMachines) | Sort-Object -Descending -Property SessionCount             
+    $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($numberMachines) | Sort-Object -Descending -Property SessionCount
     foreach ($machine in $machinesToPowerOff) {
         #Check for active sessions on each machine before shutting down
         $sessions = $(brokerUserSessions -machineName $($machine.MachineName) | Where-Object {$_.SessionState -eq "Active"} | Select-Object *)
@@ -1170,11 +1170,11 @@ Function LogoffShutdown () {
 }
 
 Function Startup () {
-    [CmdletBinding()] 
+    [CmdletBinding()]
 
     param(
-    [Parameter(Mandatory=$true, HelpMessage = "Number of machines to power on")]   
-    [ValidateNotNullOrEmpty()]     
+    [Parameter(Mandatory=$true, HelpMessage = "Number of machines to power on")]
+    [ValidateNotNullOrEmpty()]
     [int]$numberMachines
 
     )
@@ -1183,7 +1183,7 @@ Function Startup () {
     WriteLog -Message "It is currently inside working hours, machines are required to be started" -Level Info
     WriteLog -Message "There are $($machinesOnAndNotMaintenance.RegistrationState.Count) machine(s) currently switched on and registered, There are $($machinesOnAndMaintenance.RegistrationState.Count) machine(s) in maintenance mode and there are $($machinesPoweredOff.MachineName.Count) machine(s) powered off" -Level Info
     WriteLog -Message "In total there are $($($machinesOnAndMaintenance.RegistrationState.Count) + $($machinesPoweredOff.MachineName.Count)) machine(s) able to be placed into service." -Level Info
-    
+
     #If the amount of machines that are in maintenance mode are greater or equal to the number of machines needed to be started
     #Check if the number of machines available will service the requirement for machines needed
     If($numberMachines -le $($($machinesOnAndMaintenance.RegistrationState.Count) + $($machinesPoweredOff.MachineName.Count))) {
@@ -1194,8 +1194,8 @@ Function Startup () {
             WriteLog -Message "There are sufficient machines in maintenance mode to service the request" -Level Info
             foreach ($machine in $($machinesOnAndMaintenance | Select-Object -First $($numberMachines))) {
                 #Take machines out of maintenance mode
-                WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
-                If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}                        
+                WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info
+                If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}
             }
         } else {
             #The number of machines in maintenance mode will not service the request, we need to power on machines too
@@ -1203,16 +1203,16 @@ Function Startup () {
             WriteLog -Message "There are not sufficient machines in maintenance mode to service the request, we will power some on too" -Level Info
             foreach ($machine in $($machinesOnAndMaintenance)) {
                 #Take machines out of maintenance mode
-                WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
-                If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}                    
+                WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info
+                If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}
             }
             #Power on the machines we need by subtracting the machines already in maintenance mode from what is needed
             foreach ($machine in $($machinesPoweredOff | Select-Object -First ($numberMachines-$($machinesOnAndMaintenance.RegistrationState.Count)))) {
                 #Power machines on
-                WriteLog -Message "Turning On $($machine.DNSName)" -Level Info 
+                WriteLog -Message "Turning On $($machine.DNSName)" -Level Info
                 If (!$testingOnly) {brokerAction -machineName $machine.MachineName -machineAction TurnOn}
             }
-        }   
+        }
     } else {
         WriteLog -Message "The number of machines available is $($($machinesOnAndMaintenance.RegistrationState.Count) + $($machinesPoweredOff.MachineName.Count)) and the number required is $($numberMachines)" -Level Info
         WriteLog -Message "There are not enough machines available to service the request, working on the machines we can" -Level Warn
@@ -1220,20 +1220,20 @@ Function Startup () {
         #Take machines out of maintenance mode that are powered on and registered
         foreach ($machine in $machinesOnAndMaintenance) {
             #Take machines out of maintenance mode
-            WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info 
-            If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}                    
+            WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info
+            If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}
         }
 
         foreach ($machine in $machinesPoweredOff) {
             #Power machines on
-            WriteLog -Message "Turning On $($machine.DNSName)" -Level Info 
-            If (!$testingOnly) {brokerAction -machineName $machine.MachineName -machineAction TurnOn}                    
+            WriteLog -Message "Turning On $($machine.DNSName)" -Level Info
+            If (!$testingOnly) {brokerAction -machineName $machine.MachineName -machineAction TurnOn}
         }
     }
 }
 
-Function Scaling () {    
-    WriteLog -Message "The current running machines matches the target machines number, performing scaling analysis" -Level Info 
+Function Scaling () {
+    WriteLog -Message "The current running machines matches the target machines number, performing scaling analysis" -Level Info
     if (($($machinesPoweredOff.MachineName.Count) -gt 0) -or ($null -ne $($machinesPoweredOff.MachineName.Count))) {
         WriteLog -Message "Scaling has been selected, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.machineName.count) machines currently powered off and available." -Level Info
         #Select a machine to be powered on
@@ -1331,10 +1331,10 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
-        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count        
+        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         If ($action.Task -eq "Scaling" -and $performanceScaling) {
             #Perform scaling calculations
-            Scaling       
+            Scaling
         } ElseIf ($action.Task -eq "Shutdown") {
             #Logoff all disconnected sessions
             LogOffDisconnected
@@ -1345,37 +1345,37 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
             #Shutdown all machines that currently have no sessions running
             If (!$forceUserLogoff) {
                 LogoffShutdown -numberMachines $action.number
-            }      
+            }
         } ElseIf ($action.Task -eq "Startup") {
             #Startup machines if we dont have enough or one has been excluded
             Startup -numberMachines $action.Number
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
-        #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered       
+        #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
         $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         WriteLog -Message "It is currently inside working hours - performing machine analysis" -Level Info
-        If ($action.Task -eq "Scaling" -and $performanceScaling) {            
+        If ($action.Task -eq "Scaling" -and $performanceScaling) {
             #Perform scaling calculations
-            Scaling                           
+            Scaling
         } ElseIf ($action.Task -eq "Startup") {
             #Startup machines if we dont have enough or one has been excluded
             Startup -numberMachines $action.Number
-        } ElseIf ($action.Task -eq "Shutdown") {            
+        } ElseIf ($action.Task -eq "Shutdown") {
             #Shutdown all machines that currently have no sessions running
-            LogoffShutdown -numberMachines $action.number        
+            LogoffShutdown -numberMachines $action.number
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
         #There has been an error just comparing the date
         WriteLog -Message "There has been an error calculating the date or time, review the logs" -Level Error
         SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error calculating the date or time, please review the attached logs" -attachment $logLocation -Level Error
     }
-} Else { #Its the weekend    
+} Else { #Its the weekend
     $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count
     WriteLog -Message "It is currently a weekend - performing machine analysis" -Level Info
     If ($action.Task -eq "Scaling" -and $performanceScaling) {
         #Perform scaling calculations
         Scaling
-    } ElseIf ($action.Task -eq "Shutdown") {        
+    } ElseIf ($action.Task -eq "Shutdown") {
         #Logoff all disconnected sessions
         LogOffDisconnected
         #Shutdown machines sending a message to users to logoff
