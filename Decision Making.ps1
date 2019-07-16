@@ -576,22 +576,22 @@ Function levelCheck() {
         If ($machineScaling -eq "CPU") {
             If ($($overallPerformance.overallCPU.average) -gt $farmCPUThreshhold) {
                 $scalingFactor = 1
-                WriteLog -Message "CPU Threshhold of $farmCPUThreshhold is lower than current farm average of $($overallPerformance.overallCPU.average), we need to spin up an additional machine" -Level Info -Verbose   
+                WriteLog -Message "CPU Threshhold of $farmCPUThreshhold is lower than current farm average of $($overallPerformance.overallCPU.average), we need to spin up an additional machine" -Level Info -Verbose
             }
         } elseif ($machineScaling -eq "Memory") {
             If ($($overallPerformance.overallMemory.Average) -gt $farmMemoryThreshhold) {
                 $scalingFactor = 1
-                WriteLog -Message "Memory Threshhold of $farmMemoryThreshhold is lower than current farm average of $($overallPerformance.overallMemory.Average), we need to spin up an additional machine" -Level Info -Verbose   
+                WriteLog -Message "Memory Threshhold of $farmMemoryThreshhold is lower than current farm average of $($overallPerformance.overallMemory.Average), we need to spin up an additional machine" -Level Info -Verbose
             }
         } elseif ($machineScaling -eq "Index") {
             If ($($overallPerformance.overallIndex.Average) -gt $farmIndexThreshhold) {
                 $scalingFactor = 1
-                WriteLog -Message "Index Threshhold of $farmIndexThreshhold is lower than current farm average of $($overallPerformance.overallIndex.Average), we need to spin up an additional machine" -Level Info -Verbose   
+                WriteLog -Message "Index Threshhold of $farmIndexThreshhold is lower than current farm average of $($overallPerformance.overallIndex.Average), we need to spin up an additional machine" -Level Info -Verbose
             }
         } elseif ($machineScaling -eq "Sessions") {
                 If ($($overallPerformance.overallSession.Average) -gt $farmSessionThreshhold) {
                     $scalingFactor = 1
-                    WriteLog -Message "Session Threshhold of $farmSessionThreshhold is lower than current farm average of $($overallPerformance.overallSession.Average), we need to spin up an additional machine" -Level Info -Verbose      
+                    WriteLog -Message "Session Threshhold of $farmSessionThreshhold is lower than current farm average of $($overallPerformance.overallSession.Average), we need to spin up an additional machine" -Level Info -Verbose
                 }
         } else {
             WriteLog -Message "There is an error in the config for the machine scaling variable as no case was recognised for sclaing - current variable = $machineScaling" -Level Error -Verbose
@@ -625,14 +625,14 @@ Function levelCheck() {
 #Function to get a list of all machines and current states from Broker
 Function brokerMachineStates() {
 
-    [CmdletBinding()] 
-    Param 
-    (  
-        [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]   
-        [ValidateNotNullOrEmpty()]     
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]
+        [ValidateNotNullOrEmpty()]
         [string]$machinePrefix
     )
-    
+
     Return Get-BrokerMachine -AdminAddress $citrixController | Where-Object {($_.DNSName -match $machinePrefix)}
 }
 
