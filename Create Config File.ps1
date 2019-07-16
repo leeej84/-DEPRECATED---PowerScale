@@ -21,9 +21,9 @@ $LogNumberOfDays = 7                                                            
 $logLocation = "C:\Powerscale\PowerScale_Log.log"                                           #Log file location
 $forceUserLogoff = $true                                                                    #Force user sessions to be logged off out of hours or allow user sessions to drain
 $userLogoffFirstInterval = "1"                                                              #Initial logoff message interval if forcing user logoff in minutes
-$userLogoffFirstMessage = "This server will be shutdown outside of working hours, please save your work and logoff"   #Initial logoff message 
+$userLogoffFirstMessage = "This server will be shutdown outside of working hours, please save your work and logoff"   #Initial logoff message
 $userLogoffSecondInterval = "1"                                                             #Second logoff message interval if forcing user logoff in minutes
-$userLogoffSecondMessage = "This server will be shutdown shortly, please save your work and logoff as soon as possible"  #Second logoff message 
+$userLogoffSecondMessage = "This server will be shutdown shortly, please save your work and logoff as soon as possible"  #Second logoff message
 $smtpServer = ""                                                                            #SMTP server address
 $smtpToAddress = ""                                                                         #Email address to send to
 $smtpFromAddress = ""                                                                       #Email address mails will come from
@@ -32,22 +32,22 @@ $testingOnly = $true                                                            
 $exclusionTag = "excluded"                                                                  #Tag in Studio to ensure a machine is discounted from calculations
 $wmiServiceAccount = ""                                                                     #WMI Service Account Name - must include UPN or domain\username
 $wmiServicePassword = ""                                                                    #WMI Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
-        
-$configContent = [PSCustomObject]@{ 
+
+$configContent = [PSCustomObject]@{
     performanceScriptLocationComment = "Performance gathering script location"
     performanceScriptLocation = $performanceScriptLocation
-    performanceIndividual = $performanceIndividual = "Individual.xml"                                                   
+    performanceIndividual = $performanceIndividual = "Individual.xml"
     performanceIndividualComment = "Individual machine performance XML"
-    performanceOverall = $performanceOverAll 
+    performanceOverall = $performanceOverAll
     performanceOverallComment = "Overall machine performance XML"
-    performanceScaling = $performanceScaling                                                               
+    performanceScaling = $performanceScaling
     performanceScalingComment = "Performance scaling to be turned on or off (true or false)"
-    performanceSampleInterval = $performanceSampleInterval 
+    performanceSampleInterval = $performanceSampleInterval
     performanceSampleIntervalComment = "Interval of time to wait between samples"
     performanceSamples = $performanceSamples = "1"
     performanceSamplesComment = "Number of performance samples to gather"
     citrixControllerComment = "Citrix controller name or IP"
-    citrixController = $citrixController  
+    citrixController = $citrixController
     machinePrefixComment = "Machine name prefix to include"
     machinePrefix = $machinePrefix
     businessStartTimeComment = "Start time of the business"
@@ -75,19 +75,19 @@ $configContent = [PSCustomObject]@{
     scriptRunInterval = $scriptRunInterval
     scriptRunIntervalComment = "How often the script runs, used to find a window of time to backup the dashboard files"
     LogNumberOfDaysComment = "Days to rotate the logs after"
-    LogNumberOfDays = $LogNumberOfDays 
+    LogNumberOfDays = $LogNumberOfDays
     logLocationComment = "Log file location"
     logLocation = $logLocation
     forceUserLogoffComment = "Force user sessions to be logged off out of hours or allow user sessions to drain"
     forceUserLogoff = $forceUserLogoff
     userLogoffFirstIntervalComment = "Initial logoff message interval if forcing user logoff in minutes"
-    userLogoffFirstInterval = $userLogoffFirstInterval                                                                         
+    userLogoffFirstInterval = $userLogoffFirstInterval
     userLogoffFirstMessageComment = "Initial logoff message to user"
     userLogoffFirstMessage = $userLogoffFirstMessage
     userLogoffSecondIntervalComment = "Second logoff message interval if forcing user logoff in minutes"
-    userLogoffSecondInterval = $userLogoffSecondInterval                                                                         
+    userLogoffSecondInterval = $userLogoffSecondInterval
     userLogoffSecondMessageComment = "Second logoff message to user"
-    userLogoffSecondMessage = $userLogoffSecondMessage 
+    userLogoffSecondMessage = $userLogoffSecondMessage
     smtpServerComment = "SMTP server address"
     smtpServer = $smtpServer
     smtpToAddressComment = "Email address to send to"
@@ -128,9 +128,9 @@ If ($wmiServicePassword) {
     [Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($Key)
     $Key | out-file $KeyFile
             $KeyFileCreated = $True
-        Write-Host "The key file $KeyFile was created successfully"
+        Write-Output "The key file $KeyFile was created successfully"
     } catch {
-        write-Host "An error occurred trying to create the key file $KeyFile (error: $($Error[0])"
+        Write-Output "An error occurred trying to create the key file $KeyFile (error: $($Error[0])"
     }
 
     Start-Sleep 2
@@ -141,11 +141,11 @@ If ($wmiServicePassword) {
         $Key = Get-Content $KeyFile
             $encPassword = ConvertTo-SecureString $Password -AsPlainText -Force
             $encPassword | ConvertFrom-SecureString -key $Key | Out-File $PasswordFile
-            Write-Host "The key file $PasswordFile was created successfully"
+            Write-Output "The key file $PasswordFile was created successfully"
         } catch {
-            write-Host "An error occurred trying to create the password file $PasswordFile (error: $($Error[0])"
+            Write-Output "An error occurred trying to create the password file $PasswordFile (error: $($Error[0])"
         }
-    } 
+    }
 }
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition -Verbose
