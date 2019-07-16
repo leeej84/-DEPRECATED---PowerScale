@@ -1,6 +1,6 @@
-﻿################################################################################################## 
+﻿##################################################################################################
 #Main Logic script
-#Copyright:         Free to use, please leave this header intact 
+#Copyright:         Free to use, please leave this header intact
 #Author:            Leee Jeffries
 #Company:           https://www.leeejeffries.com
 #Script help:       https://www.leeejeffries.com, please supply any errors or issues you encounter
@@ -9,13 +9,13 @@
 # Smart Scale is due to be deprecated in May 2019
 
 #Input command for testing purposes, to supply a time
-[CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$false, HelpMessage = "Specify a testing time for data generation")] 
-        [ValidateNotNullOrEmpty()] 
-        [Alias("Time")] 
-        $inputTime        
+[CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$false, HelpMessage = "Specify a testing time for data generation")]
+        [ValidateNotNullOrEmpty()]
+        [Alias("Time")]
+        $inputTime
     )
 
 #Get current script folder
@@ -55,13 +55,13 @@ $performanceOverall = $configInfo.performanceOverall
 $performanceInterval = $configInfo.performanceSampleInterval
 $performanceSamples = $configInfo.performanceSamples
 $performanceScaling = $configInfo.performanceScaling
-$citrixController = $configInfo.citrixController                                                          
-$machinePrefix = $configInfo.machinePrefix 
-$businessStartTime =  $configInfo.businessStartTime 
-$businessCloseTime = $configInfo.businessCloseTime 
+$citrixController = $configInfo.citrixController
+$machinePrefix = $configInfo.machinePrefix
+$businessStartTime =  $configInfo.businessStartTime
+$businessCloseTime = $configInfo.businessCloseTime
 $outOfHoursMachines = $configInfo.outOfHoursMachines
 $inHoursMachines = $configInfo.inHoursMachines
-$machineScaling = $configInfo.machineScaling 
+$machineScaling = $configInfo.machineScaling
 $farmCPUThreshhold = $configInfo.farmCPUThreshhold
 $farmMemoryThreshhold = $configInfo.farmMemoryThreshhold
 $farmIndexThreshhold = $configInfo.farmIndexThreshhold
@@ -70,8 +70,8 @@ $dashboardBackupTime = $configInfo.dashboardBackupTime
 $dashboardRetention = $configInfo.dashboardRetention
 $scriptRunInterval = New-TimeSpan -Minutes $configInfo.scriptRunInterval
 $LogNumberOfDays = $configInfo.LogNumberOfDays
-$logLocation = $configInfo.logLocation 
-$forceUserLogoff = $configInfo.forceUserLogoff    
+$logLocation = $configInfo.logLocation
+$forceUserLogoff = $configInfo.forceUserLogoff
 $userLogoffFirstInterval = $configInfo.userLogoffFirstInterval
 $userLogoffFirstMessage = $configInfo.userLogoffFirstMessage
 $userLogoffSecondInterval = $configInfo.userLogoffSecondInterval
@@ -95,10 +95,10 @@ $jsonFileTable = "times.json","machinesOn.json","machinesScaled.json","machinesM
 #Get current date in correct format
 $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
 
-#Setup a time object for comparison taking into account the input time for testing 
-if ($inputTime) {  
+#Setup a time object for comparison taking into account the input time for testing
+if ($inputTime) {
     $inputDate = $([datetime]::ParseExact("$inputTime", "dd/MM/yyyy HH:mm", $null)).ToShortDateString()
-    
+
     $timesObj = [PSCustomObject]@{
         startTime = [datetime]::ParseExact($("$($inputDate) $($businessStartTime)"), "dd/MM/yyyy HH:mm", $null)
         endTime = [datetime]::ParseExact($("$($inputDate) $($businessCloseTime)"), "dd/MM/yyyy HH:mm", $null)
@@ -120,7 +120,7 @@ Add-PSSnapin Citrix*
 #Function to parse log file and pull out any errors to be populated into the Dashboard
 Function GatherErrors() {
     #Log folder
-    $currentLog = Get-ChildItem -Path "$(Split-Path -Path $logLocation)\*.log" | Sort LastWriteTime -Descending | Select -First 1 
+    $currentLog = Get-ChildItem -Path "$(Split-Path -Path $logLocation)\*.log" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         #Check for the existence of the latest logfile
     if(test-path $currentLog) {
         $logcontent = Get-Content $currentLog
@@ -140,14 +140,14 @@ Function GenerateDashboard() {
     $jsonData = [System.Collections.ArrayList]::new()
     foreach ($jsonFile in $jsonFileTable) {
         #Test if we can get to each json file and it already exists
-        if (Test-Path "$jsonPath\$jsonFile") {        
+        if (Test-Path "$jsonPath\$jsonFile") {
                 $readData = [PSCustomObject]@{$jsonFile=[PSCustomObject]@{json = $(Get-Content "$jsonPath\$jsonFile" | ConvertFrom-Json -Verbose)}}
                 $jsonData.Add($readData)
             } else {
                 #Logout which files were missing
-                WriteLog -Message "JSON folder exists but JSON file $jsonFile is missing" -Level Warn                
-                $jsonMissing = $true     
-            }  
+                WriteLog -Message "JSON folder exists but JSON file $jsonFile is missing" -Level Warn
+                $jsonMissing = $true
+            }
         }
 
         if (!$jsonMissing) {
@@ -155,8 +155,8 @@ Function GenerateDashboard() {
             $jsonData.'times.json'.json.labels += $(@($timesObj.timeNow.ToShortTimeString() + "-" + $timesObj.timeNow.ToShortDateString()))
             $jsonData.'machinesOn.json'.json.data += $machinesOnAndNotMaintenance.DNSName.count
             $jsonData.'machinesScaled.json'.json.data += $machinesScaled.DNSName.count
-            $jsonData.'machinesMaintenance.json'.json.data += $machinesMaintenance.DNSName.count    
-            $jsonData.'machinesExcluded.json'.json.data += $machinesExcluded.DNSName.count    
+            $jsonData.'machinesMaintenance.json'.json.data += $machinesMaintenance.DNSName.count
+            $jsonData.'machinesExcluded.json'.json.data += $machinesExcluded.DNSName.count
             $jsonData.'farmCPU.json'.json.data += $overallPerformance.overallCPU.Average
             $jsonData.'farmMemory.json'.json.data += $overallPerformance.overallMemory.Average
             $jsonData.'farmIndex.json'.json.data += $overallPerformance.overallIndex.Average
@@ -164,19 +164,19 @@ Function GenerateDashboard() {
         } else {
             #Remove JSON files and log out what is happening
             Remove-Item -Path $jsonPath -Force
-            WriteLog -Message "JSON folder deleted, dashboard metrics will reset" -Level Warn   
+            WriteLog -Message "JSON folder deleted, dashboard metrics will reset" -Level Warn
         }
     } else {
         #Create JSON Object Array
         $jsonData = [System.Collections.ArrayList]::new()
-        
+
         #Create the subfolder
         New-Item -ItemType Directory -Path "$scriptPath\Dashboard" -Name JSON
         New-Item -ItemType Directory -Path $scriptPath -Name Dashboard
 
         #Create the JSON file
         foreach ($jsonFile in $jsonFileTable) {
-            New-Item -ItemType File -Path $jsonPath -Name $jsonFile    
+            New-Item -ItemType File -Path $jsonPath -Name $jsonFile
         }
 
         $readData = [PSCustomObject]@{'times.json'=[PSCustomObject]@{json=[PSCustomObject]@{labels = @($timesObj.timeNow.ToShortTimeString() + "-" + $timesObj.timeNow.ToShortDateString())}}}
@@ -250,7 +250,7 @@ Function UpdateDashboardNavigation {
     $htmlNav="<A HREF=Dashboard.html>Current</A>&nbsp;&nbsp;"
 
     #Loop to generate html text
-    foreach ($htmlFile in $htmlFiles) {        
+    foreach ($htmlFile in $htmlFiles) {
             $htmlNav = $htmlNav + "<A HREF=`"$($htmlFile.Name)`">$($($($htmlFile.Name).Replace('Dashboard-','')).replace('.html',''))</A>&nbsp;&nbsp;"
         }
 
@@ -263,32 +263,32 @@ Function UpdateDashboardNavigation {
 
 #Function to control Dashboard retention
 Function CircularDashboard() {
-    
-    [CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$true, HelpMessage = "How many historical dashboards to store")] 
-        [ValidateNotNullOrEmpty()] 
-        [Alias("DashRetention")] 
+
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "How many historical dashboards to store")]
+        [ValidateNotNullOrEmpty()]
+        [Alias("DashRetention")]
         [int]$retention
- 
+
     )
 
-    Begin 
-    { 
-        # Set VerbosePreference to Continue so that verbose messages are displayed. 
-        $VerbosePreference = 'Continue' 
+    Begin
+    {
+        # Set VerbosePreference to Continue so that verbose messages are displayed.
+        $VerbosePreference = 'Continue'
         WriteLog -Message "Start Circular Dashboard Management" -Level Info
-    } 
-    Process 
-    {   
+    }
+    Process
+    {
         #Find all HTML files
         $htmlFiles = Get-ChildItem ("$scriptPath\Dashboard\*.html") | Sort-Object CreationTime
         #Find all javascript files
         $jscriptFiles = Get-ChildItem ("$scriptPath\Dashboard\*.js") -Exclude "*chart.min.js*" | Sort-Object CreationTime
         #Find all currently backed up Dashboard files
         $htmlFilesCopied = Get-ChildItem ("$scriptPath\Dashboard\Dashboard-*.html") | Sort-Object CreationTime
-        
+
         #Write to log, files found
         WriteLog -Message "$($htmlFilesCopied.count) html files found" -Level Info
         WriteLog -Message "$($jscriptFiles.count) js files found" -Level Info
@@ -304,27 +304,27 @@ Function CircularDashboard() {
 
             #Grab html file contents and make replacements before renaming
             (Get-Content -Path "$scriptPath\Dashboard\Dashboard.html").Replace("script.js","script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js") | Set-Content -Path "$scriptPath\Dashboard\Dashboard.html"
-            
+
             #Create a backup of the current dashboard
             Rename-Item -Path "$scriptPath\Dashboard\Dashboard.html" -NewName "Dashboard-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).html"
             Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
         }
 
         #There are already enough dashboards, remove some of the old ones
-        If ($htmlFilesCopied.count -ge $retention) {    
+        If ($htmlFilesCopied.count -ge $retention) {
             #Log out that the retention period is being triggered
             WriteLog -Message "Existing Dashboard being recycled as we are over the retention amount of $retention with $($htmlFilesCopied.count)" -Level Info
-            
+
             #Remove older JSON files
             Get-ChildItem -Path "$jsonPath\*.json" | Remove-Item
 
             #Check how many log files we have
             If ($htmlFiles.count -ge $retention) {
-                #Calculate files to remove             
+                #Calculate files to remove
                 $filesToRemove = $htmlFiles | Sort-Object CreationTime | Select-Object -First $($htmlFiles.count - $retention)
                 WriteLog -Message "There are $($htmlFiles.count) dashboard backups and we want $retention, deleting $($htmlFiles.count - $retention)" -Level Info
                 foreach ($file in $filesToRemove) {
-                    $file | Remove-Item               
+                    $file | Remove-Item
                     WriteLog -Message "Older dashboard files removed $file" -Level Info
                 }
             }
@@ -333,7 +333,7 @@ Function CircularDashboard() {
                 $filesToRemove = ($jscriptFiles) | Sort-Object CreationTime | Select-Object -First $($jscriptFiles.count - $retention)
                 WriteLog -Message "There are $($jscriptFiles.count) dashboard backups and we want $retention, deleting $($jscriptFiles.count - $retention)" -Level Info
                 foreach ($file in $filesToRemove) {
-                    $file | Remove-Item               
+                    $file | Remove-Item
                     WriteLog -Message "Older javascript files removed $file" -Level Info
                 }
             }
@@ -346,95 +346,95 @@ Function CircularDashboard() {
 
             #Grab html file contents and make replacements before renaming
             (Get-Content -Path "$scriptPath\Dashboard\Dashboard.html").Replace("script.js","script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js") | Set-Content -Path "$scriptPath\Dashboard\Dashboard.html"
-            
+
             #Create a backup of the current dashboard
             Rename-Item -Path "$scriptPath\Dashboard\Dashboard.html" -NewName "Dashboard-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).html"
             Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
 
             WriteLog -Message "Completed Circular Dashboard Management" -Level Info
         }
-    } 
-    End 
-    { 
+    }
+    End
+    {
     }
 }
 
 #Function to create a log file
 Function WriteLog() {
 
-    [CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$true, HelpMessage = "The error message text to be placed into the log.")] 
-        [ValidateNotNullOrEmpty()] 
-        [Alias("LogContent")] 
-        [string]$Message, 
- 
-         [Parameter(Mandatory=$false, HelpMessage = "The error level of the event.")] 
-        [ValidateSet("Error","Warn","Info")] 
-        [string]$Level="Info", 
-         
-        [Parameter(Mandatory=$false, HelpMessage = "Specify to not overwrite the previous log file.")]         
-        [switch]$NoClobber 
-    ) 
- 
-    Begin 
-    { 
-        # Set VerbosePreference to Continue so that verbose messages are displayed. 
-        $VerbosePreference = 'Continue' 
-    } 
-    Process 
-    { 
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "The error message text to be placed into the log.")]
+        [ValidateNotNullOrEmpty()]
+        [Alias("LogContent")]
+        [string]$Message,
+
+         [Parameter(Mandatory=$false, HelpMessage = "The error level of the event.")]
+        [ValidateSet("Error","Warn","Info")]
+        [string]$Level="Info",
+
+        [Parameter(Mandatory=$false, HelpMessage = "Specify to not overwrite the previous log file.")]
+        [switch]$NoClobber
+    )
+
+    Begin
+    {
+        # Set VerbosePreference to Continue so that verbose messages are displayed.
+        $VerbosePreference = 'Continue'
+    }
+    Process
+    {
         # append the date to the $path variable. It will also append .log at the end.
         $DateForLogFileName = Get-Date -Format "yyyy-MM-dd"
         $logLocation = $logLocation + "_" + $DateForLogFileName+".log"
 
-        # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path. 
-        If (!(Test-Path $logLocation)) { 
-            Write-Verbose "Creating $logLocation." 
-            New-Item $logLocation -Force -ItemType File 
-            } 
- 
-        else { 
-            # Nothing to see here yet. 
-            } 
- 
-        # Format Date for our Log File 
-        $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss" 
-        
+        # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path.
+        If (!(Test-Path $logLocation)) {
+            Write-Verbose "Creating $logLocation."
+            New-Item $logLocation -Force -ItemType File
+            }
+
+        else {
+            # Nothing to see here yet.
+            }
+
+        # Format Date for our Log File
+        $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
          # Write message to error, warning, or verbose pipeline and specify $LevelText 
-        switch ($Level) { 
-            'Error' { 
-                Write-Error $Message 
-                $LevelText = 'ERROR:' 
-                } 
-            'Warn' { 
-                Write-Warning $Message 
-                $LevelText = 'WARNING:' 
-                } 
-            'Info' { 
-                Write-Verbose $Message 
-                $LevelText = 'INFO:' 
-                } 
-            } 
-         
-        # Write log entry to $Path 
-        "$FormattedDate $LevelText $Message" | Out-File -FilePath $logLocation -Append 
-    } 
-    End 
-    { 
-    } 
+        switch ($Level) {
+            'Error' {
+                Write-Error $Message
+                $LevelText = 'ERROR:'
+                }
+            'Warn' {
+                Write-Warning $Message
+                $LevelText = 'WARNING:'
+                }
+            'Info' {
+                Write-Verbose $Message
+                $LevelText = 'INFO:'
+                }
+            }
+
+        # Write log entry to $Path
+        "$FormattedDate $LevelText $Message" | Out-File -FilePath $logLocation -Append
+    }
+    End
+    {
+    }
 }
 
 Function CircularLogging() {
-     
-    Begin 
-    { 
+
+    Begin
+    {
         # Set VerbosePreference to Continue so that verbose messages are displayed. 
-        $VerbosePreference = 'Continue' 
-    } 
-    Process 
-    {   
+        $VerbosePreference = 'Continue'
+    }
+    Process
+    {
         $Path = Split-Path -Path $logLocation
         WriteLog -Message "Start Circular Log Management" -Level Info
         #Get all log files in the log folder with .log extension, select the oldest ones past the specified retention number and remove them
@@ -445,76 +445,76 @@ Function CircularLogging() {
             $filesToRemove = Get-ChildItem ("$Path\$LogTypeToProcess*.log") | Sort-Object CreationTime | Select-Object -First $($files.count - $LogNumberOfDays)
             $filesToRemove
             foreach ($file in $filesToRemove) {
-                $file | Remove-Item               
+                $file | Remove-Item
                 WriteLog -Message "Log file removed $file" -Level Info
-            }            
+            }
             WriteLog -Message "Completed Circular Log Management" -Level Info
         }
-    } 
-        End 
-    { 
-    } 
+    }
+        End
+    {
+    }
 }
 
 
 #Function to send an email message in same format as the log
 Function SendEmail() {
 
-    [CmdletBinding()] 
-    Param 
-    ( 
-        [Parameter(Mandatory=$true, HelpMessage = "The message to be placed into the email.")] 
-        [ValidateNotNullOrEmpty()] 
-        [string]$Message, 
- 
-        [Parameter(Mandatory=$false, HelpMessage = "The attachment to be sent with the email.")] 
-        [string]$attachment='', 
-         
-        [Parameter(Mandatory=$false, HelpMessage = "The warning level of the event.")] 
-        [ValidateSet("Error","Warn","Info")] 
-        [string]$Level="Info", 
-         
-        [Parameter(Mandatory=$false, HelpMessage = "The SMTP server that will deliver the email.")] 
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory=$true, HelpMessage = "The message to be placed into the email.")]
+        [ValidateNotNullOrEmpty()]
+        [string]$Message,
+
+        [Parameter(Mandatory=$false, HelpMessage = "The attachment to be sent with the email.")]
+        [string]$attachment='',
+
+        [Parameter(Mandatory=$false, HelpMessage = "The warning level of the event.")]
+        [ValidateSet("Error","Warn","Info")]
+        [string]$Level="Info",
+
+        [Parameter(Mandatory=$false, HelpMessage = "The SMTP server that will deliver the email.")]
         [string]$smtpServer="",
-         
-        [Parameter(Mandatory=$false, HelpMessage = "The email address to send emails from.")] 
+
+        [Parameter(Mandatory=$false, HelpMessage = "The email address to send emails from.")]
         [string]$fromAddress="",
-         
-        [Parameter(Mandatory=$false, HelpMessage = "The email address to send emails to.")] 
+
+        [Parameter(Mandatory=$false, HelpMessage = "The email address to send emails to.")]
         [string]$toAddress="",
 
-        [Parameter(Mandatory=$false, HelpMessage = "The subject line of the email")] 
+        [Parameter(Mandatory=$false, HelpMessage = "The subject line of the email")]
         [string]$subject=""
     )
- 
-    Begin 
-    { 
+
+    Begin
+    {
         # Set VerbosePreference to Continue so that verbose messages are displayed. 
-        $VerbosePreference = 'Continue' 
-    } 
-    Process 
-    {               
- 
-        # Format Date for our Log File 
+        $VerbosePreference = 'Continue'
+    }
+    Process
+    {
+
+        # Format Date for our Log File
         $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
- 
-        # Write message to error, warning, or verbose pipeline and specify $LevelText 
-        switch ($Level) { 
-            'Error' { 
-                Write-Error $Message 
-                $LevelText = 'ERROR:' 
-                } 
-            'Warn' { 
-                Write-Warning $Message 
-                $LevelText = 'WARNING:' 
-                } 
-            'Info' { 
-                Write-Verbose $Message 
-                $LevelText = 'INFO:' 
-                } 
-            } 
+
+        # Write message to error, warning, or verbose pipeline and specify $LevelText
+        switch ($Level) {
+            'Error' {
+                Write-Error $Message
+                $LevelText = 'ERROR:'
+                }
+            'Warn' {
+                Write-Warning $Message
+                $LevelText = 'WARNING:'
+                }
+            'Info' {
+                Write-Verbose $Message
+                $LevelText = 'INFO:'
+                }
+            }
         # Check if the attachment exists
-        if (Test-Path $attachment) { 
+        if (Test-Path $attachment) {
             "Attachment file $attachment exists"
             # Send email message with attachment
             Send-MailMessage -SmtpServer $smtpServer -From $fromAddress -To $toAddress -Subject $("$subject - $Level") -Body "$FormattedDate $LevelText $Message" -Attachments $attachment
@@ -1396,8 +1396,8 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
 GenerateDashboard
 
 If ((($($timesObj.timeNow) -ge $($timesObj.backupTime)) -and ($($timesObj.timeNow) -le $($($timesObj.backupTime) + $scriptRunInterval)))) {
-    Write-Host "Circular Dashboard Maintenance Triggered"
-    Write-Host "Dashboard Backup Time:$($timesObj.backupTime) - Time Now: $($timesObj.timeNow) - Dashboard Backup Window: $($timesObj.backupTime + $scriptRunInterval)"
+    Write-Output "Circular Dashboard Maintenance Triggered"
+    Write-Output "Dashboard Backup Time:$($timesObj.backupTime) - Time Now: $($timesObj.timeNow) - Dashboard Backup Window: $($timesObj.backupTime + $scriptRunInterval)"
     WriteLog -Message "Circular Dashboard Maintenance Triggered" -Level Info -NoClobber
     CircularDashboard -retention $dashboardRetention
 }
