@@ -15,5 +15,6 @@ Prerequisites:
 
 Please make sure on your initial test runs you enable test mode, this will gather information but not perform any actions on the farm. This will also confirm that WMI access is working as expected.
 
-Chat with us here:
-https://gitter.im/Powerscale/community?utm_source=share-link&utm_medium=link&utm_campaign=share-link
+https://communityinviter.com/apps/worldofeuc/world-of-euc-project
+
+Join the project-powerscale channel
