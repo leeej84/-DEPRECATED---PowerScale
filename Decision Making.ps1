@@ -588,7 +588,7 @@ Function levelCheck() {
                 $scalingFactor = 1    
                 WriteLog -Message "Index Threshhold of $farmIndexThreshhold is lower than current farm average of $($overallPerformance.overallIndex.Average), we need to spin up an additional machine" -Level Info -Verbose   
             }
-        } elseif ($machineScaling -eq "Sessions") {
+        } elseif ($machineScaling -eq "Session") {
                 If ($($overallPerformance.overallSession.Average) -gt $farmSessionThreshhold) {
                     $scalingFactor = 1 
                     WriteLog -Message "Session Threshhold of $farmSessionThreshhold is lower than current farm average of $($overallPerformance.overallSession.Average), we need to spin up an additional machine" -Level Info -Verbose      
