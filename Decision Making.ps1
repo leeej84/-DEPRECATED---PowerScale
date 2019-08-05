@@ -962,7 +962,7 @@ ForEach ($computer in $machines) {
                 [pscustomobject]@{
                     Computer = $computer
                     CPU = Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage
-                    Memory = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100}} | Select-Object -ExpandProperty Memory
+                    Memory = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
                     LoadIndex = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
                     Sessions = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
                     Thread = $ThreadID
