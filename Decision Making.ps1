@@ -628,16 +628,7 @@ Function levelCheck() {
 
 #Function to get a list of all machines and current states from Broker
 Function brokerMachineStates() {
-
-    [CmdletBinding()]
-    Param
-    (
-        [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]
-        [ValidateNotNullOrEmpty()]
-        [string]$machinePrefix
-    )
-
-    Return Get-BrokerMachine -AdminAddress $citrixController | Where-Object {($_.DNSName -match $machinePrefix)}
+    Return Get-BrokerMachine -AdminAddress $citrixController
 }
 
 #Function to get a list of all sessions and current state from Broker
@@ -1284,15 +1275,77 @@ WriteLog -Message "-" -Level Info -NoClobber
 WriteLog -Message "#######PowerScale script starting - Test mode value is $testingOnly#######" -Level Info
 
 #########################Reset All Variables and Get All Metrics###################################
-#Reset variables (to avoid different data from multiple script runs)
 $allMachines = ""
 $allUserSessions = ""
+$machinesExcluded = ""
 
 #Grab all machine details and user session details from the Citrix Farm
 try {
-    $allMachines = brokerMachineStates -machinePrefix $machinePrefix | Where-Object {$_.Tags -notcontains $exclusionTag}
-    $allUserSessions = brokerUserSessions -machinePrefix $machinePrefix | Where-Object {$_.Tags -notcontains $exclusionTag}
-    $machinesExcluded = brokerMachineStates -machinePrefix $machinePrefix | Where-Object {$_.Tags -contains $exclusionTag}
+        #Get all machines
+        if ($machineDetection -eq "prefix") {
+            $allMachines = foreach ($prefix in $machinePrefix) {
+                brokerMachineStates | Where-Object {($_.DNSName -match $prefix) -and ($_.Tags -notcontains $exclusionTag)}
+            }
+        }
+        if ($machineDetection -eq "dg") {
+            $allMachines = foreach ($dg in $machineDeliveryGroups) {
+                brokerMachineStates | Where-Object {($_.DesktopGroupName -contains $dg) -and ($_.Tags -notcontains $exclusionTag)}
+            }
+        }
+        if ($machineDetection -eq "mc") {
+            $allMachines = foreach ($c in $machineCatalogs) {
+                brokerMachineStates | Where-Object {($_.CatalogName -eq $c) -and ($_.Tags -notcontains $exclusionTag)}
+            }
+        }
+        if($machineDetection -eq "tag") {
+            $allMachines = foreach ($tag in $machineTags) {
+                brokerMachineStates | Where-Object {($_.Tags -contains $tag) -and ($_.Tags -notcontains $exclusionTag)}
+            }
+        }
+
+        #Get all user sessions
+        if ($machineDetection -eq "prefix") {
+            $allUserSessions = foreach ($prefix in $machinePrefix) {
+                brokerUserSessions  | Where-Object {($_.DNSName -match $prefix) -and ($_.Tags -notcontains $exclusionTag)}
+            }
+        }
+        if ($machineDetection -eq "dg") {
+            $allUserSessions = foreach ($dg in $machineDeliveryGroups) {
+                brokerUserSessions | Where-Object {($_.DesktopGroupName -eq $dg) -and ($_.Tags -notcontains $exclusionTag)}
+            }
+        }
+        if ($machineDetection -eq "mc") {
+            $allUserSessions = foreach ($c in $machineCatalogs) {
+                brokerUserSessions | Where-Object {($_.CatalogName -eq $c) -and ($_.Tags -notcontains $exclusionTag)}
+            }
+        }
+        if($machineDetection -eq "tag") {
+            $allUserSessions = foreach ($tag in $machineTags) {
+                brokerUserSessions | Where-Object {($_.Tags -contains $tag) -and ($_.Tags -notcontains $exclusionTag)}
+            } 
+        }
+
+        #Get excluded machines
+        if ($machineDetection -eq "prefix") {            
+            $machinesExcluded = foreach ($prefix in $machinePrefix) {
+                brokerMachineStates  | Where-Object {($_.DNSName -match $prefix) -and ($_.Tags -contains $exclusionTag)}
+            }
+        }
+        if ($machineDetection -eq "dg") {
+            $machinesExcluded = foreach ($dg in $machineDeliveryGroups) {
+                brokerMachineStates | Where-Object {($_.Tags -match $tag) -and ($_.Tags -contains $exclusionTag)}
+            }
+        }
+        if ($machineDetection -eq "mc") {
+            $machinesExcluded = foreach ($c in $machineCatalogs) {
+                brokerMachineStates | Where-Object {($_.CatalogName -eq $c) -and ($_.Tags -contains $exclusionTag)}
+            }
+        }
+        if($machineDetection -eq "tag") {
+            $machinesExcluded = foreach ($tag in $machineTags) {
+                brokerMachineStates | Where-Object {($_.Tags -eq $tag) -and ($_.Tags -contains $exclusionTag)}
+            } 
+        }
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
     Exit
@@ -1314,7 +1367,7 @@ if ($performanceScaling) {
 $disconnectedSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Disconnected"}
 $activeSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Active"}
 $machinesOnAndMaintenance = $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}
-$machinesOnAndNotMaintenance = $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
+$machinesOnAndNotMaintenance = $allMachines | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
 $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
 $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
 
