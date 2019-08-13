@@ -440,7 +440,7 @@ Function CircularLogging() {
         #Get all log files in the log folder with .log extension, select the oldest ones past the specified retention number and remove them
         $files = Get-ChildItem ("$Path\*.log") | Sort-Object CreationTime
         #Check how many log files we have
-        If ($files.count -gt 5) {
+        If ($files.count -gt $LogNumberOfDays) {
             #Calculate files to remove
             $filesToRemove = Get-ChildItem ("$Path\$LogTypeToProcess*.log") | Sort-Object CreationTime | Select-Object -First $($files.count - $LogNumberOfDays)
             $filesToRemove
