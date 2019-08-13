@@ -4,7 +4,11 @@ $performanceScaling = $true                                                     
 $performanceSampleInterval = "1"                                                            #Interval of time to wait between samples
 $performanceSamples = "1"                                                                   #Number of performance samples to gather
 $citrixController = ""                                                                      #Citrix controller name or IP
+$machineDetection = "prefix"                                                                #The machine detection method - can be tag based, delivery group, machine catalog or prefix, options prefix, tag, dg, mc (Support for multiple tags, delivery groups or machine catalogs)
 $machinePrefix = "XDSHNP"                                                                   #Machine name prefix to include
+$machineDeliveryGroups = ""                                                                 #Machine delivery groups to target - add additional ones like this: $machineDeliveryGroups = "Delivery Group 1","Delivery Group 2"
+$machineCatalogs = ""                                                                       #Machine catalogs groups to target - add addtional ones like this: $machineCatalogs = "Catalog 1","Catalog 2"   
+$machineTags = ""                                                                           #Machines tags to target - add addtional ones like this: $machineTags = "Tag 1","Tag 2"   
 $businessStartTime =  "06:00"                                                               #Start time of the business
 $businessCloseTime = "18:00"                                                                #End time of the business
 $outOfHoursMachines = "1"                                                                   #How many machines should be powered on during the weekends
@@ -48,8 +52,17 @@ $configContent = [PSCustomObject]@{
     performanceSamplesComment = "Number of performance samples to gather"
     citrixControllerComment = "Citrix controller name or IP"
     citrixController = $citrixController
+    machineDetectionComment = "The machine detection method - can be tag based, delivery group, machine catalog or prefix, options prefix, tag, dg, mc (Support for multiple tags, delivery groups or machine catalogs)"
+    machineDetection = "prefix"                                                                
     machinePrefixComment = "Machine name prefix to include"
     machinePrefix = $machinePrefix
+    machinePrefix = "XDSHNP"
+    machineDeliveryGroupsComment = 'Machine delivery groups to target - add additional ones like this: $machineDeliveryGroups = "Delivery Group 1","Delivery Group 2"'
+    machineDeliveryGroups = ""  
+    machineCatalogsComment = 'Machine catalogs groups to target - add addtional ones like this: $machineCatalogs = "Catalog 1","Catalog 2"'
+    machineCatalogs = ""                                                                       
+    machineTagsComment = 'Machines tags to target - add addtional ones like this: $machineTags = "Tag 1","Tag 2"'
+    machineTags = ""                                                                           
     businessStartTimeComment = "Start time of the business"
     businessStartTime =  $businessStartTime
     businessCloseTimeComment = "End time of the business"
