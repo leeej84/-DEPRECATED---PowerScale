@@ -893,8 +893,8 @@ ForEach ($computer in $machines) {
                 
                 [pscustomobject]@{
                     Computer = $computer
-                    CPU = Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage
-                    Memory = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100}} | Select -ExcludeProperty Memory
+                    CPU = (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage)
+                    Memory = (Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
                     LoadIndex = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
                     Sessions = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
                     Thread = $ThreadID
@@ -962,7 +962,7 @@ ForEach ($computer in $machines) {
                 [pscustomobject]@{
                     Computer = $computer
                     CPU = Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage
-                    Memory = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100}} | Select -ExcludeProperty Memory
+                    Memory = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100}} | Select-Object -ExpandProperty Memory
                     LoadIndex = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
                     Sessions = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
                     Thread = $ThreadID
@@ -1000,7 +1000,7 @@ ForEach ($computer in $machines) {
 }
     #Verify completed - Echo out a final status after all jobs have executed
     “Available Runspaces in RunspacePool: {0}” -f $RunspacePool.GetAvailableRunspaces()
-    “Remaining Jobs: {0}” -f @($jobs | Where {$_.handle.iscompleted -ne ‘Completed’}).Count
+    “Remaining Jobs: {0}” -f @($jobs | Where-Object {$_.handle.iscompleted -ne ‘Completed’}).Count
 
     #Check if we have jobs to process
     if ($jobs) {
@@ -1028,7 +1028,7 @@ ForEach ($computer in $machines) {
 
 #Export metrics as XML to be read into another scripts as an object
 $Metrics | Export-Clixml -Path $exportLocation
-$Metrics | Select *
+$Metrics | Select-Object *
 
 #Custom object for overall averages
 $overallAverage = [PSCustomObject]@{
