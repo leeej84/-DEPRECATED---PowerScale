@@ -50,7 +50,7 @@ $configContent = [PSCustomObject]@{
     citrixControllerComment = "Citrix controller name or IP"
     citrixController = $citrixController
     machineDetectionComment = "The machine detection method - can be tag based, delivery group, machine catalog or prefix, options prefix, tag, dg, mc (Support for multiple tags, delivery groups or machine catalogs)"
-    machineDetection = "prefix"                                                                
+    machineDetection = $machineDetection                                                               
     machinePrefixComment = "Machine name prefix to include"
     machinePrefix = $machinePrefix
     machineDeliveryGroupsComment = 'Machine delivery groups to target - add additional ones like this: $machineDeliveryGroups = "Delivery Group 1","Delivery Group 2"'
