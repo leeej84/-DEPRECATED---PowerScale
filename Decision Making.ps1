@@ -1403,25 +1403,25 @@ try {
         #Get all machines
         if ($machineDetection -eq "prefix") {
             $allMachines = foreach ($prefix in $machinePrefix) {
-                WriteLog -Message "Getting a list of machine from $citrixController based on prefix - $machinePrefix" -Level Info
+                WriteLog -Message "Getting a list of machine from $citrixController based on prefix - $prefix" -Level Info
                 brokerMachineStates | Where-Object {($_.DNSName -match $prefix) -and ($_.Tags -notcontains $exclusionTag)}
             }
         }
         if ($machineDetection -eq "dg") {
             $allMachines = foreach ($dg in $machineDeliveryGroups) {
-                WriteLog -Message "Getting a list of machine from $citrixController based on delivery group - $machineDeliveryGroups" -Level Info
+                WriteLog -Message "Getting a list of machine from $citrixController based on delivery group - $dg" -Level Info
                 brokerMachineStates | Where-Object {($_.DesktopGroupName -contains $dg) -and ($_.Tags -notcontains $exclusionTag)}
             }
         }
         if ($machineDetection -eq "mc") {
             $allMachines = foreach ($c in $machineCatalogs) {
-                WriteLog -Message "Getting a list of machine from $citrixController based on machine catalog - $machineCatalogs" -Level Info
+                WriteLog -Message "Getting a list of machine from $citrixController based on machine catalog - $c" -Level Info
                 brokerMachineStates | Where-Object {($_.CatalogName -eq $c) -and ($_.Tags -notcontains $exclusionTag)}
             }
         }
         if($machineDetection -eq "tag") {
             $allMachines = foreach ($tag in $machineTags) {
-                WriteLog -Message "Getting a list of machine from $citrixController based on tags - $machineTags" -Level Info
+                WriteLog -Message "Getting a list of machine from $citrixController based on tags - $tag" -Level Info
                 brokerMachineStates | Where-Object {($_.Tags -contains $tag) -and ($_.Tags -notcontains $exclusionTag)}
             }
         }
