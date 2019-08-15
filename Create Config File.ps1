@@ -12,7 +12,7 @@ $businessStartTime =  "06:00"                                                   
 $businessCloseTime = "18:00"                                                                #End time of the business
 $outOfHoursMachines = "1"                                                                   #How many machines should be powered on during the weekends
 $inHoursMachines = "1"                                                                      #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
-$machineScaling = "CPU"                                                                     #Options are (Schedule, CPU, Memory, Index or Sessions)
+$machineScaling = "CPU"                                                                     #Options are (Schedule, CPU, Memory, Index or Session)
 $farmCPUThreshhold = 85                                                                     #Farm CPU threshhold average ex: 90 = 90% CPU across the farm on average
 $farmMemoryThreshhold = 85                                                                  #Farm memory threshhold average ex: 90 = 90% memory used across the farm on average
 $farmIndexThreshhold = 5000                                                                 #Farm Load Index threshhold average ex: 5000 = Load index of 5000 on average across the farm
