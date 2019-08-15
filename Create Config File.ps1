@@ -1,8 +1,7 @@
+$performanceThreadsMax = "15"                                                               #Maximum number of symaltaneous threads used for performance monitoring
 $performanceIndividual = "Individual.xml"                                                   #Individual machine performance XML
 $performanceOverAll = "Overall.xml"                                                         #Overall machine performance XML
 $performanceScaling = $true                                                                 #Performance scaling to be turned on or off (true or false)
-$performanceSampleInterval = "1"                                                            #Interval of time to wait between samples
-$performanceSamples = "1"                                                                   #Number of performance samples to gather
 $citrixController = ""                                                                      #Citrix controller name or IP
 $machineDetection = "prefix"                                                                #The machine detection method - can be tag based, delivery group, machine catalog or prefix, options prefix, tag, dg, mc (Support for multiple tags, delivery groups or machine catalogs)
 $machinePrefix = "XDSH","XASH"                                                              #Machine name prefix to include
@@ -34,10 +33,12 @@ $smtpFromAddress = ""                                                           
 $smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
 $exclusionTag = "excluded"                                                                  #Tag in Studio to ensure a machine is discounted from calculations
-$wmiServiceAccount = ""                                                                     #WMI Service Account Name - must include UPN or domain\username
-$wmiServicePassword = ""                                                                    #WMI Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
+$authServiceAccount = ""                                                                    #Authentication Service Account Name - must include UPN or domain\username
+$authServicePassword = ""                                                                   #Authentication Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
 
 $configContent = [PSCustomObject]@{
+    performanceThreadsMaxComment = "Maximum number of symaltaneous threads used for performance monitoring"
+    performanceThreadsMax = $performanceThreadsMax
     performanceScriptLocationComment = "Performance gathering script location"
     performanceScriptLocation = $performanceScriptLocation
     performanceIndividual = $performanceIndividual = "Individual.xml"
@@ -46,10 +47,6 @@ $configContent = [PSCustomObject]@{
     performanceOverallComment = "Overall machine performance XML"
     performanceScaling = $performanceScaling
     performanceScalingComment = "Performance scaling to be turned on or off (true or false)"
-    performanceSampleInterval = $performanceSampleInterval
-    performanceSampleIntervalComment = "Interval of time to wait between samples"
-    performanceSamples = $performanceSamples = "1"
-    performanceSamplesComment = "Number of performance samples to gather"
     citrixControllerComment = "Citrix controller name or IP"
     citrixController = $citrixController
     machineDetectionComment = "The machine detection method - can be tag based, delivery group, machine catalog or prefix, options prefix, tag, dg, mc (Support for multiple tags, delivery groups or machine catalogs)"
@@ -110,20 +107,20 @@ $configContent = [PSCustomObject]@{
     smtpSubject = $smtpSubject
     exclusionTag = $exclusionTag
     exclusionTagComment = "Tag to assign in Studio to exclude a machine from scaling operations"
-    wmiServiceAccount = $wmiServiceAccount
-    wmiServiceAccountComment = "WMI Service Account Name"
+    authServiceAccount = $authServiceAccount
+    authServiceAccountComment = "Authentication Service Account Name"
     testingOnlyComment = "Debugging value, will only write out to the log "
     testingOnly = $testingOnly
 }
 
-#Encrypt WMI user credentials if wmiPassword is populated
-If ($wmiServicePassword) {
+#Encrypt authentication user credentials if authPassword is populated
+If ($authServicePassword) {
     # Define variables
     $Directory = split-path -parent $MyInvocation.MyCommand.Definition
     $KeyFile = Join-Path $Directory  "AES_KEY_FILE.key"
     $PasswordFile = Join-Path $Directory "AES_PASSWORD_FILE.pass"
 
-    $Password = $wmiServicePassword
+    $Password = $authServicePassword
 
     #Remove previous password files if they exist
     if ($(Test-Path $KeyFile) -eq $true) {
