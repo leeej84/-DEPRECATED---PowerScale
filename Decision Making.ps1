@@ -34,7 +34,7 @@ Function configurationImport () {
     }
 }
 
-function WMIDetailsImport () {
+function AuthDetailsImport () {
     # Define variables
     $Directory = $scriptPath
     $KeyFile = Join-Path $Directory  "AES_KEY_FILE.key"
@@ -42,7 +42,7 @@ function WMIDetailsImport () {
 
     # Read the secure password from a password file and decrypt it to a normal readable string
     $SecurePassword = ( (Get-Content $PasswordFile) | ConvertTo-SecureString -Key (Get-Content $KeyFile) )        # Convert the standard encrypted password stored in the password file to a secure string using the AES key file
-    $Credentials = New-Object System.Management.Automation.PSCredential ($wmiServiceAccount, $SecurePassword)
+    $Credentials = New-Object System.Management.Automation.PSCredential ($authServiceAccount, $SecurePassword)
     Return $Credentials
 }
 
@@ -50,10 +50,9 @@ function WMIDetailsImport () {
 $configInfo = configurationImport
 
 #Set all variables for the script
+$performanceThreadsMax = $configInfo.performanceThreadsMax
 $performanceIndividual = $configInfo.performanceIndividual
 $performanceOverall = $configInfo.performanceOverall
-$performanceInterval = $configInfo.performanceSampleInterval
-$performanceSamples = $configInfo.performanceSamples
 $performanceScaling = $configInfo.performanceScaling
 $citrixController = $configInfo.citrixController
 $machineDetection = $configInfo.machineDetection
@@ -86,7 +85,7 @@ $smtpFromAddress = $configInfo.smtpFromAddress
 $smtpSubject = $configInfo.smtpSubject
 $testingOnly = $configInfo.testingOnly
 $exclusionTag = $configInfo.exclusionTag
-$wmiServiceAccount = $configInfo.wmiServiceAccount
+$authServiceAccount = $configInfo.authServiceAccount
 #Add a script run interval variable, must be filled in for comparison of dashboard backup
 #Add a dashboard backup variable, the time the dashboard files should be backed up
 
@@ -223,11 +222,34 @@ Function GenerateDashboard() {
     #Replacements in HTML for configuration data
     $HTML = Get-Content "$scriptPath\Template\dashboard_template.html"
     $HTML = $HTML.Replace('&lt;Controller&gt;',$citrixController)
+    if ($machineDetection -eq "prefix") {
+        $HTML = $HTML.Replace('&lt;DetectionValue&gt;',"Machine Prefix")
+        $HTML = $HTML.Replace('&lt;DetectionEntries&gt;',$machinePrefix)
+    }
+    if ($machineDetection -eq "dg") {
+        $HTML = $HTML.Replace('&lt;DetectionValue&gt;',"Delivery Group")
+        $HTML = $HTML.Replace('&lt;DetectionEntries&gt;',$machineDeliveryGroups)
+    }
+    if ($machineDetection -eq "mc") {
+        $HTML = $HTML.Replace('&lt;DetectionValue&gt;',"Machine Catalog")
+        $HTML = $HTML.Replace('&lt;DetectionEntries&gt;',$machineCatalogs)
+    }
+    if($machineDetection -eq "tag") {
+        $HTML = $HTML.Replace('&lt;DetectionValue&gt;',"Machine Tags")
+        $HTML = $HTML.Replace('&lt;DetectionEntries&gt;',$machineTags)
+    }
+    $HTML = $HTML.Replace('&lt;Controller&gt;',$citrixController)
     $HTML = $HTML.Replace('&lt;TestValue&gt;',$(if ($testingOnly) {"Test Mode"}else{"Live Mode"}))
     $HTML = $HTML.Replace('&lt;PefixValue&gt;',$machinePrefix)
     $HTML = $HTML.Replace('&lt;StartTime&gt;',$businessStartTime)
     $HTML = $HTML.Replace('&lt;EndTime&gt;',$businessCloseTime)
+    $HTML = $HTML.Replace('&lt;InHoursMachines&gt;',$inHoursMachines)  
+    $HTML = $HTML.Replace('&lt;OutHoursMachines&gt;',$outOfHoursMachines) 
     $HTML = $HTML.Replace('&lt;ScalingMode&gt;',$machineScaling)
+    $HTML = $HTML.Replace('&lt;MonitoringThreads&gt;',$performanceThreadsMax)
+    $HTML = $HTML.Replace('&lt;DashboardRenew&gt;',$dashboardBackupTime)
+    $HTML = $HTML.Replace('&lt;DashboardRetention&gt;',$dashboardRetention)
+    $HTML = $HTML.Replace('&lt;LogRetention&gt;',$LogNumberOfDays)
     $HTML = $HTML.Replace('&lt;CPUValue&gt;',$overallPerformance.overallCPU.average)
     $HTML = $HTML.Replace('&lt;MemoryValue&gt;',$overallPerformance.overallMemory.average)
     $HTML = $HTML.Replace('&lt;LoadValue&gt;',$overallPerformance.overallIndex.average)
@@ -552,9 +574,9 @@ Function IsWeekDay() {
 
 #Function to check if inside of business hours or outside to business hours
 Function TimeCheck($timeObj) {
-    If (($timesObj.timeNow.Hour -lt $timesObj.startTime.Hour) -or ($timesObj.timeNow.Hour -gt $timesObj.endTime.Hour)) {
+    If (($timesObj.timeNow.Hour -le $timesObj.startTime.Hour) -or ($timesObj.timeNow.Hour -ge $timesObj.endTime.Hour)) {
         Return "OutOfHours" #OutOfHours as we are outside of working hours
-    } ElseIf (($timesObj.timeNow.Hour -ge $timesObj.startTime.Hour) -and ($timesObj.timeNow.Hour -le $timesObj.endTime.Hour)) {
+    } ElseIf (($timesObj.timeNow.Hour -gt $timesObj.startTime.Hour) -and ($timesObj.timeNow.Hour -lt $timesObj.endTime.Hour)) {
         Return "InsideOfHours" #Dont OutOfHours as we are inside working hours
     } Else {
         Return "Error" #Dont do anything if the time calculation is not conclusive
@@ -778,17 +800,9 @@ Function performanceAnalysis () {
     [CmdletBinding()]
 
     param(
-    [Parameter(Mandatory=$true, HelpMessage = "Specifies a prefix to search for for the VDA machine names")]
+    [Parameter(Mandatory=$true, HelpMessage = "Machines to enumerate")]
     [ValidateNotNullOrEmpty()]
-    [string]$machinePrefix,
-
-    [Parameter(Mandatory=$true, HelpMessage = "Interval between performance samples")]
-    [ValidateNotNullOrEmpty()]
-    [int]$performanceInterval,
-
-    [Parameter(Mandatory=$true, HelpMessage = "Number of performance samples to gather")]
-    [ValidateNotNullOrEmpty()]
-    [int]$performanceSamples,
+    [array]$machines,
 
     [Parameter(Mandatory=$true, HelpMessage = "Export location for individual machine performance details")]
     [ValidateNotNullOrEmpty()]
@@ -800,116 +814,221 @@ Function performanceAnalysis () {
 )
 
 #Check variables for any known issue
-If (-not ([String]::IsNullOrEmpty($wmiServiceAccount))) {
-    #WMI account provided check for upn or domain\username
-    if ((($wmiServiceAccount) -match "\\") -or (($wmiServiceAccount) -match "@")) {
-        WriteLog -Message "The wmi account provided is in the correct format, continuing" -Level Info -Verbose
+If (-not ([String]::IsNullOrEmpty($authServiceAccount))) {
+    #authentication account provided check for upn or domain\username
+    if ((($authServiceAccount) -match "\\") -or (($authServiceAccount) -match "@")) {
+        WriteLog -Message "The authentication account provided is in the correct format, continuing" -Level Info -Verbose
     } else {
-        "WMI Account invalid"
-        WriteLog -Message "The wmi account provided is not valid for use as it is in an incorrect format, script execution will now stop" -Level Error -Verbose
+        "authentication Account invalid"
+        WriteLog -Message "The authentication account provided is not valid for use as it is in an incorrect format, script execution will now stop" -Level Error -Verbose
         Exit
     }
 }
 
-#Get a list of live Citrix Servers from the Broker that are currently powered on
-$computers = Get-BrokerMachine -AdminAddress $citrixController | Where-Object {($_.DNSName -match $machinePrefix) -And ($_.RegistrationState -eq "Registered") -And ($_.PowerState -eq "On")} | Select-Object -ExpandProperty DNSName
+#region Runspace Pool
+[runspacefactory]::CreateRunspacePool()
+$SessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+$RunspacePool = [runspacefactory]::CreateRunspacePool(
+    1, #Min Runspaces
+    $performanceThreadsMax #Max Runspaces
+)
 
-#Zero out results so we dont see last set of results on the first run of performance information gathering
-$results = ""
+$PowerShell = [powershell]::Create()
+#Uses the RunspacePool vs. Runspace Property
+
+#Cannot have both Runspace and RunspacePool property used; last one applied wins
+$PowerShell.RunspacePool = $RunspacePool
+$RunspacePool.Open()
+#endregion
+
+#Create an array to store runspace and script instances for later retrieval
+$jobs = New-Object System.Collections.ArrayList
+
+#Grab credentialy for performance measurement
+$myCreds = If (-not ([String]::IsNullOrEmpty($authServiceAccount))) { AuthDetailsImport }
 
 #Loop through each machine obtained from the broker and gathers its information for scaling puroposes
-ForEach ($computer in $computers) {
-    #Check if we have a wmi account to use, if we do check access for each machine, otherwise run in current user context
-    If  (-not ([String]::IsNullOrEmpty($wmiServiceAccount))) {
-        #Only gather performance metrics for machines that we have WMI access to
+ForEach ($computer in $machines) {
+    #Create parameter object for the runspace scriptblocks
+    $Parameters = @{
+        computer = $computer
+        creds = $myCreds
+        controller = $citrixController
+    }
+
+    #Check if we have a service account to use, if we do check access for each machine, otherwise run in current user context
+    If  (-not ([String]::IsNullOrEmpty($authServiceAccount))) {
+        #Only gather performance metrics for machines that we have access to
         WriteLog -Message "Starting performance measurement job for $computer using specified credentials" -Level Info -Verbose
-        If  ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer -Credential $(WMIDetailsImport))) {
-            Start-Job -Name $computer -Credential $(WMIDetailsImport) -Verbose -ScriptBlock {
-                param (
-                $computer,
-                $ctxController,
-                $interval,
-                $samples
+        
+        #Check connection using CIM for performance measurements and run the performance measurement
+        if ($cimSession = New-CimSession -Credential $myCreds -ComputerName $computer) {
+            WriteLog -Message "CIM Connection test for $computer successful" -Level Info -Verbose 
+            
+            #Remove the session as it needs to be recreated in the RunSpace script
+            Remove-CimSession -CimSession $cimSession
+            
+            #Create a runspace for each job running
+            $PowerShell = [powershell]::Create()
+            $PowerShell.RunspacePool = $RunspacePool
+
+            #Get the Thread ID of the script
+            $ThreadID = [appdomain]::GetCurrentThreadId()
+            Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose           
+            
+            #Create the script that will run
+            [void]$PowerShell.AddScript({
+                Param (
+                    $computer,
+                    $creds,
+                    $controller
                 )
 
                 #Load the Citrix snap-ins
                 Add-PSSnapin Citrix*
 
-                #Create a custom object to store the results
-                $results = [PSCustomObject]@{
-                Machine = $computer
-                CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-                Memory = [int](Get-Counter -Counter '\Memory\% Committed Bytes In Use' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-                LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
-                Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
+                $ThreadID = [appdomain]::GetCurrentThreadId()
+                Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
+                $cimSession = New-CimSession -ComputerName $computer -Credential $creds
+                
+                [pscustomobject]@{
+                    Computer = $computer
+                    CPU = Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage
+                    Memory = Get-CimInstance -CimSession $cimSession -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {$($_.TotalVisibleMemorySize/1MB) - $($_.FreePhysicalMemory/1MB)}} | Select-Object -ExpandProperty Memory
+                    LoadIndex = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
+                    Sessions = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
+                    Thread = $ThreadID
+                    ProcessID = $PID
                 }
+                Write-Verbose "ThreadID: Ending $ThreadID" -Verbose
 
-                #Write out the results for this computer only if the CPU and Memory calculations worked
-                if ($results.CPU -eq 0 -or $results.memory -eq 0) {
-                    $results
-                } else {
-                    $results
-                }
+            })
 
-            } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
-        }
-    } elseif ($(Get-WmiObject -query "SELECT * FROM Win32_OperatingSystem" -ComputerName $computer)) {
-        WriteLog -Message "Starting performance measurement job for $computer using script run credentials" -Level Info -Verbose
-        Start-Job -Name $computer -Verbose -ScriptBlock {
-        param (
-        $computer,
-        $ctxController,
-        $interval,
-        $samples
-        )
+            #Add the parameter block to the script
+            [void]$PowerShell.AddParameters($Parameters)
 
-        #Load the Citrix snap-ins
-        Add-PSSnapin Citrix*
+            #Kick off the runspace script
+            $Handle = $PowerShell.BeginInvoke()
 
-        #Create a custom object to store the results
-        $results = [PSCustomObject]@{
-        Machine = $computer
-        CPU = [int](Get-Counter '\Processor(_Total)\% Processor Time' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-        Memory = [int](Get-Counter -Counter '\Memory\% Committed Bytes In Use' -ComputerName $computer -SampleInterval $interval -MaxSamples $samples | Select-Object -expand CounterSamples | Measure-Object -average cookedvalue | Select-Object -ExpandProperty Average)
-        LoadIndex = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
-        Sessions = (Get-BrokerMachine -AdminAddress $ctxController | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
-        }
+            #create an object to store the runspace instance and script instance (PowerShell is runspace and Handle is the script)
+            $temp = "" | Select-Object PowerShell,Handle
 
-        #Write out the results for this computer only if the CPU and Memory calculations worked
-        if ($results.CPU -eq 0 -or $results.memory -eq 0) {
-            $results
+            #Set the PowerShell instance in the object just created
+            $temp.PowerShell = $PowerShell
+
+            #Set the script instance in the object just created
+            $temp.handle = $Handle
+
+            #Add the object with instances to the array
+            [void]$jobs.Add($Temp)
+
+            #Write out what the status is of the jobs
+            "Available Runspaces in RunspacePool: {0}" -f $RunspacePool.GetAvailableRunspaces()
+            "Remaining Jobs: {0}" -f @($jobs | Where-Object {$_.handle.iscompleted -ne 'Completed'}).Count
         } else {
-            $results
+            WriteLog -Message "Error during CIM connection test for $computer not successful" -Level Warn -Verbose
         }
+    } elseif (([String]::IsNullOrEmpty($authServiceAccount))) {
+        if ($cimSession = New-CimSession -ComputerName $computer) {
+            WriteLog -Message "CIM Connection test for $computer successful using script run credentials" -Level Info -Verbose 
+            WriteLog -Message "Starting performance measurement job for $computer using script run credentials" -Level Info -Verbose              
+                
+            #Remove the session as it needs to be recreated in the RunSpace script
+            Remove-CimSession -CimSession $cimSession
+            
+            #Create a runspace for each job running
+            $PowerShell = [powershell]::Create()
+            $PowerShell.RunspacePool = $RunspacePool
 
-        } -ArgumentList $computer, $citrixController, $performanceInterval, $performanceSamples
-    } else {
-        WriteLog -Message "There has been an error connecting to $computer to gather performance metrics" -Level Error -Verbose
+            #Get the Thread ID of the script
+            $ThreadID = [appdomain]::GetCurrentThreadId()
+            Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose  
+            
+            #Create the script that will run
+            [void]$PowerShell.AddScript({
+                Param (
+                    $computer,
+                    $creds,
+                    $controller
+                )
+                
+                #Load the Citrix snap-ins
+                Add-PSSnapin Citrix*
+
+                $ThreadID = [appdomain]::GetCurrentThreadId()
+                Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
+                $cimSession = New-CimSession -ComputerName $computer
+                
+                [pscustomobject]@{
+                    Computer = $computer
+                    CPU = Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage
+                    Memory = Get-CimInstance -CimSession $cimSession -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {$($_.TotalVisibleMemorySize/1MB) - $($_.FreePhysicalMemory/1MB)}} | Select-Object -ExpandProperty Memory
+                    LoadIndex = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
+                    Sessions = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
+                    Thread = $ThreadID
+                    ProcessID = $PID
+                }
+                Write-Verbose "ThreadID: Ending $ThreadID" -Verbose
+            })
+
+            #Add the parameter block to the script
+            [void]$PowerShell.AddParameters($Parameters)
+
+            #Kick off the runspace script
+            $Handle = $PowerShell.BeginInvoke()
+
+            #create an object to store the runspace instance and script instance (PowerShell is runspace and Handle is the script)
+            $temp = "" | Select-Object PowerShell,Handle
+
+            #Set the PowerShell instance in the object just created
+            $temp.PowerShell = $PowerShell
+
+            #Set the script instance in the object just created
+            $temp.handle = $Handle
+
+            #Add the object with instances to the array
+            [void]$jobs.Add($Temp)
+
+            #Write out what the status is of the jobs
+            "Available Runspaces in RunspacePool: {0}" -f $RunspacePool.GetAvailableRunspaces()
+            "Remaining Jobs: {0}" -f @($jobs | Where-Object {$_.handle.iscompleted -ne 'Completed'}).Count
+                
+        } else {
+            WriteLog -Message "Error during CIM connection test using script run credentials for $computer not successful" -Level Warn -Verbose
+        }    
     }
 }
+    #Verify completed - Echo out a final status after all jobs have executed
+    “Available Runspaces in RunspacePool: {0}” -f $RunspacePool.GetAvailableRunspaces()
+    “Remaining Jobs: {0}” -f @($jobs | Where {$_.handle.iscompleted -ne ‘Completed’}).Count
 
-#Loop through all running jobs every 5 seconds to see if complete, if they are; receive the jobs and store the metrics
-$Metrics = Do {
-    $runningJobs = Get-Job | Where-Object {$_.State -ne "Completed"}
-    $completedJobs = Get-Job |  Where-Object {$_.State -eq "Completed"}
-    ForEach ($job in $completedJobs) {
-        Receive-Job $job | Select-Object * -ExcludeProperty RunspaceId
-        Remove-Job $job
-    }
+    #Check if we have jobs to process
+    if ($jobs) {
+    
+    #Wait for all jobs to complete with a 5 second wait inbetween checks
+        Do {
+            Start-Sleep -Seconds 5
+        } until ($($jobs.Handle | Where-Object {$_.IsCompleted -eq $False}).count -eq 0)
 
-    ForEach ($job in $runningJobs) {
-        if ($job.State -eq "Failed") {
-        WriteLog -Message "Performance measurement failed for $($job.name)" -Level Error
-        WriteLog -Message ($job | Receive-Job) -Level Error
-        $job | Remove-Job
+        $Metrics = $jobs | ForEach-Object {
+            #Cleanup the job in the runspace
+            $_.PowerShell.EndInvoke($_.Handle)
+            #Cleanup the run space itself
+            $_.PowerShell.Dispose()
+        }
+
+        #Clear out array 
+        $jobs.clear()
+
+        #Clear out all existing runspaces except the default
+        foreach ($runspace in $(Get-Runspace | Where-Object {$_.State -eq "Closed"})) {
+            $runspace.Dispose()
         }
     }
-    Start-Sleep -Seconds 5
-} Until ($runningJobs.Count -eq 0)
 
 #Export metrics as XML to be read into another scripts as an object
 $Metrics | Export-Clixml -Path $exportLocation
-$Metrics
+$Metrics | Select *
 
 #Custom object for overall averages
 $overallAverage = [PSCustomObject]@{
@@ -1346,6 +1465,15 @@ try {
                 brokerMachineStates | Where-Object {($_.Tags -eq $tag) -and ($_.Tags -contains $exclusionTag)}
             } 
         }
+
+        #Filter down the main objects into sub variables for scripting ease
+        $disconnectedSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Disconnected"}
+        $activeSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Active"}
+        $machinesOnAndMaintenance = $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}
+        $machinesOnAndNotMaintenance = $allMachines | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
+        $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
+        $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
+
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
     Exit
@@ -1354,22 +1482,13 @@ if ($performanceScaling) {
     #Run the performance monitoring script to create XML files
     WriteLog -Message "Performance scaling is enabled - attempting performance metrics capture" -Level Info
     try {
-        $overallPerformance = performanceAnalysis -machinePrefix $machinePrefix -performanceSamples $performanceSamples -performanceInterval $performanceInterval -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
+        $overallPerformance = performanceAnalysis -machines $($machinesOnAndNotMaintenance.DNSName) -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
     } catch {
-        WriteLog -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and WMI. " -Level Error
+        WriteLog -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and CMI. " -Level Error
         #Log out the latest error - does not mean performance measurement was unsuccessful on all machines
-        WriteLog -Message "$Error[$($Error.Count)]" -Level Error
         Exit
     }
 }
-
-#Filter down the main objects into sub variables for scripting ease
-$disconnectedSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Disconnected"}
-$activeSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Active"}
-$machinesOnAndMaintenance = $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}
-$machinesOnAndNotMaintenance = $allMachines | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
-$machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
-$machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
 
 #Create the broker tag for scaling if it doesn't exist
 If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController)) {
