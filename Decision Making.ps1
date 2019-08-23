@@ -1533,6 +1533,15 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
             #Startup machines if we dont have enough or one has been excluded
             Startup -numberMachines $action.Number
         }
+        if ($($action.Number) -eq 0) {
+        #Remove the scaling tag if one exists
+            foreach ($machine in $machinesScaled) {
+                if (Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid) {
+                    WriteLog -Message "We're out of hours with the correct number of machines - removing scaling tag from $($machine.MachineName)" -Level Info
+                    Remove-BrokerTag "Scaled-On" -Machine $machine
+                }
+            }
+        }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
         $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
