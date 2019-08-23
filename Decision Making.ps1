@@ -1280,7 +1280,7 @@ Function LogoffShutdown () {
         } else {
             WriteLog -Message "Active session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
             foreach ($session in $sessions) {
-                WriteLog -Message "Sessions active on $($machine.DNSName), $($session.BrokeringUsername)" -Level Info
+                WriteLog -Message "Sessions active on $($machine.DNSName), $($session.BrokeringUsername) - session length and state $($(New-TimeSpan -Start $($session.EstablishmentTime)).Minutes) Minutes - State $($session.SessionState) " -Level Info
             }
         }
     }
