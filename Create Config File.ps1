@@ -6,8 +6,8 @@ $citrixController = ""                                                          
 $machineDetection = "prefix"                                                                #The machine detection method - can be tag based, delivery group, machine catalog or prefix, options prefix, tag, dg, mc (Support for multiple tags, delivery groups or machine catalogs)
 $machinePrefix = "XDSH","XASH"                                                              #Machine name prefix to include
 $machineDeliveryGroups = "Delivery Group 1","Delivery Group 2"                              #Machine delivery groups to target - add additional ones like this: $machineDeliveryGroups = "Delivery Group 1","Delivery Group 2"
-$machineCatalogs = "Catalog 1","Catalog 2"                                                  #Machine catalogs groups to target - add addtional ones like this: $machineCatalogs = "Catalog 1","Catalog 2"   
-$machineTags = "powerGroup1","powerGroup2"                                                  #Machines tags to target - add addtional ones like this: $machineTags = "Tag 1","Tag 2"   
+$machineCatalogs = "Catalog 1","Catalog 2"                                                  #Machine catalogs groups to target - add addtional ones like this: $machineCatalogs = "Catalog 1","Catalog 2"
+$machineTags = "powerGroup1","powerGroup2"                                                  #Machines tags to target - add addtional ones like this: $machineTags = "Tag 1","Tag 2"
 $businessStartTime =  "06:00"                                                               #Start time of the business
 $businessCloseTime = "18:00"                                                                #End time of the business
 $outOfHoursMachines = "1"                                                                   #How many machines should be powered on during the weekends
@@ -21,7 +21,7 @@ $dashboardBackupTime = "04:00"                                                  
 $dashboardRetention = 5                                                                     #How many Dashboard files should be retained
 $scriptRunInterval = 15                                                                     #How often the script runs, used to find a window of time to backup the dashboard files
 $LogNumberOfDays = 7                                                                        #Days to rotate the logs after
-$logLocation = "C:\Powerscale\Logs\PowerScale_Log.log"                                      #Log file location
+$logLocation = "Logs\PowerScale_Log.log"                                                    #Log file location
 $forceUserLogoff = $true                                                                    #Force user sessions to be logged off out of hours or allow user sessions to drain
 $userLogoffFirstInterval = "1"                                                              #Initial logoff message interval if forcing user logoff in minutes
 $userLogoffFirstMessage = "This server will be shutdown outside of working hours, please save your work and logoff"   #Initial logoff message
@@ -36,29 +36,34 @@ $exclusionTag = "excluded"                                                      
 $authServiceAccount = ""                                                                    #Authentication Service Account Name - must include UPN or domain\username
 $authServicePassword = ""                                                                   #Authentication Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
 
+$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition -Verbose
+$performanceindividualpath = $scriptpath+'\'+$performanceIndividual
+$performanceoverallpath = $scriptpath+'\'+$performanceOverAll
+$loglocationpath = $scriptpath+'\'+$logLocation
+
 $configContent = [PSCustomObject]@{
     performanceThreadsMaxComment = "Maximum number of symaltaneous threads used for performance monitoring"
     performanceThreadsMax = $performanceThreadsMax
     performanceScriptLocationComment = "Performance gathering script location"
     performanceScriptLocation = $performanceScriptLocation
-    performanceIndividual = $performanceIndividual = "Individual.xml"
+    performanceIndividual = $performanceIndividualpath 
     performanceIndividualComment = "Individual machine performance XML"
-    performanceOverall = $performanceOverAll
+    performanceOverall = $performanceOverAllpath
     performanceOverallComment = "Overall machine performance XML"
     performanceScaling = $performanceScaling
     performanceScalingComment = "Performance scaling to be turned on or off (true or false)"
     citrixControllerComment = "Citrix controller name or IP"
     citrixController = $citrixController
     machineDetectionComment = "The machine detection method - can be tag based, delivery group, machine catalog or prefix, options prefix, tag, dg, mc (Support for multiple tags, delivery groups or machine catalogs)"
-    machineDetection = $machineDetection                                                               
+    machineDetection = $machineDetection
     machinePrefixComment = "Machine name prefix to include"
     machinePrefix = $machinePrefix
     machineDeliveryGroupsComment = 'Machine delivery groups to target - add additional ones like this: $machineDeliveryGroups = "Delivery Group 1","Delivery Group 2"'
-    machineDeliveryGroups = $machineDeliveryGroups 
+    machineDeliveryGroups = $machineDeliveryGroups
     machineCatalogsComment = 'Machine catalogs groups to target - add addtional ones like this: $machineCatalogs = "Catalog 1","Catalog 2"'
-    machineCatalogs = $machineCatalogs                                                                       
+    machineCatalogs = $machineCatalogs
     machineTagsComment = 'Machines tags to target - add addtional ones like this: $machineTags = "Tag 1","Tag 2"'
-    machineTags = $machineTags                                                                          
+    machineTags = $machineTags
     businessStartTimeComment = "Start time of the business"
     businessStartTime =  $businessStartTime
     businessCloseTimeComment = "End time of the business"
@@ -86,7 +91,7 @@ $configContent = [PSCustomObject]@{
     LogNumberOfDaysComment = "Days to rotate the logs after"
     LogNumberOfDays = $LogNumberOfDays
     logLocationComment = "Log file location"
-    logLocation = $logLocation
+    logLocation = $logLocationpath
     forceUserLogoffComment = "Force user sessions to be logged off out of hours or allow user sessions to drain"
     forceUserLogoff = $forceUserLogoff
     userLogoffFirstIntervalComment = "Initial logoff message interval if forcing user logoff in minutes"
