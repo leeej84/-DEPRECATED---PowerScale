@@ -1269,7 +1269,7 @@ Function LogoffShutdown () {
     )
 
     WriteLog -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
-    $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($numberMachines) | Sort-Object -Descending -Property SessionCount
+    $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines) 
     foreach ($machine in $machinesToPowerOff) {
         #Check for active sessions on each machine before shutting down
         $sessions = $(brokerUserSessions -machineName $($machine.MachineName) | Where-Object {$_.SessionState -eq "Active"} | Select-Object *)
@@ -1279,6 +1279,7 @@ Function LogoffShutdown () {
             If (!$testingOnly) { brokerAction -machineName $($machine.MachineName) -machineAction Shutdown }
         } else {
             WriteLog -Message "Active session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
+            maintenance -machine $machine.MachineName -maintenanceMode On
             foreach ($session in $sessions) {
                 WriteLog -Message "Sessions active on $($machine.DNSName), $($session.BrokeringUsername) - session length and state $($(New-TimeSpan -Start $($session.EstablishmentTime)).Minutes) Minutes - State $($session.SessionState) " -Level Info
             }
