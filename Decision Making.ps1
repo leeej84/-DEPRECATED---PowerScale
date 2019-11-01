@@ -1310,7 +1310,7 @@ Function Startup () {
             #The number of machines in maintenance mode will service the request
             WriteLog -Message "The number of machines in maintenance mode is $($machinesOnAndMaintenance.RegistrationState.Count) and the number of machine(s) needed is $($numberMachines)" -Level Info
             WriteLog -Message "There are sufficient machines in maintenance mode to service the request" -Level Info
-            foreach ($machine in $($machinesOnAndMaintenance | Select-Object -First $($numberMachines))) {
+            foreach ($machine in $($machinesOnAndMaintenance | Get-Random -Count $($numberMachines))) {
                 #Take machines out of maintenance mode
                 WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info
                 If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}
@@ -1355,7 +1355,7 @@ Function Scaling () {
     if (($($machinesPoweredOff.MachineName.Count) -gt 0) -or ($null -ne $($machinesPoweredOff.MachineName.Count))) {
         WriteLog -Message "Scaling has been selected, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.machineName.count) machines currently powered off and available." -Level Info
         #Select a machine to be powered on
-        $machineToPowerOn = $machinesPoweredOff | Select-Object -First 1
+        $machineToPowerOn = $machinesPoweredOff | Get-Random -Count 1
         If ($null -eq $machineToPowerOn) {
             WriteLog -Message "There are no machines available to power on" -Level Info
             WriteLog -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
