@@ -650,7 +650,7 @@ Function levelCheck() {
 
 #Function to get a list of all machines and current states from Broker
 Function brokerMachineStates() {
-    Return Get-BrokerMachine -AdminAddress $citrixController
+    Return Get-BrokerMachine -AdminAddress $citrixController -MaxRecordCount 9999
 }
 
 #Function to get a list of all sessions and current state from Broker
@@ -1059,7 +1059,7 @@ Function forceLogoffShutdown () {
     )
 
     WriteLog -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
-    $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($numberMachines) | Sort-Object -Property SessionCount
+    $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
     #For everymachine powered on up to the correct number, switch the poweroff
     foreach ($machine in $machinesToPowerOff) {
         #Set the machine in maintenance mode
