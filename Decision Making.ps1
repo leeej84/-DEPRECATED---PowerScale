@@ -59,7 +59,7 @@ $machineDetection = $configInfo.machineDetection
 $machinePrefix = $configInfo.machinePrefix
 $machineDeliveryGroups = $configInfo.machineDeliveryGroups
 $machineCatalogs = $configInfo.machineCatalogs
-$machineTags = $configInfo.machineTags     
+$machineTags = $configInfo.machineTags
 $businessStartTime =  $configInfo.businessStartTime
 $businessCloseTime = $configInfo.businessCloseTime
 $outOfHoursMachines = $configInfo.outOfHoursMachines
@@ -243,8 +243,8 @@ Function GenerateDashboard() {
     $HTML = $HTML.Replace('&lt;PefixValue&gt;',$machinePrefix)
     $HTML = $HTML.Replace('&lt;StartTime&gt;',$businessStartTime)
     $HTML = $HTML.Replace('&lt;EndTime&gt;',$businessCloseTime)
-    $HTML = $HTML.Replace('&lt;InHoursMachines&gt;',$inHoursMachines)  
-    $HTML = $HTML.Replace('&lt;OutHoursMachines&gt;',$outOfHoursMachines) 
+    $HTML = $HTML.Replace('&lt;InHoursMachines&gt;',$inHoursMachines)
+    $HTML = $HTML.Replace('&lt;OutHoursMachines&gt;',$outOfHoursMachines)
     $HTML = $HTML.Replace('&lt;ScalingMode&gt;',$machineScaling)
     $HTML = $HTML.Replace('&lt;MonitoringThreads&gt;',$performanceThreadsMax)
     $HTML = $HTML.Replace('&lt;DashboardRenew&gt;',$dashboardBackupTime)
@@ -574,14 +574,14 @@ Function IsWeekDay() {
 
 #Function to check if inside of business hours or outside to business hours
 Function TimeCheck($timeObj) {
-    If (($timesObj.timeNow.Hour -le $timesObj.startTime.Hour) -or ($timesObj.timeNow.Hour -ge $timesObj.endTime.Hour)) {
-        Return "OutOfHours" #OutOfHours as we are outside of working hours
-    } ElseIf (($timesObj.timeNow.Hour -gt $timesObj.startTime.Hour) -and ($timesObj.timeNow.Hour -lt $timesObj.endTime.Hour)) {
-        Return "InsideOfHours" #Dont OutOfHours as we are inside working hours
-    } Else {
-        Return "Error" #Dont do anything if the time calculation is not conclusive
+    If (($timesObj.timeNow.Hour -lt $timesObj.startTime.Hour) -or (($timesobj.timeNow.hour -eq $timesObj.startTime.hour) -and ($timesobj.timeNow.Minute -lt $timesObj.startTime.Minute))) {
+        Return "OutOfHours" #OutOfHours Too Early
     }
-}
+    if (($timesObj.timeNow.hour -gt $timesObj.endTime.hour) -or (($timesObj.timeNow.Hour -eq $timesObj.endTime.hour) -and ($timesObj.timeNow.Minute -gt $timesObj.endTime.Minute))) {
+        Return "OutofHours" #Out of Hours - Too Late
+    }
+    Return "InsideOfHours" #Dont OutOfHours as we are inside working hours
+    }
 
 #Function to check the level of machines based on current time and day
 Function levelCheck() {
@@ -650,7 +650,7 @@ Function levelCheck() {
 
 #Function to get a list of all machines and current states from Broker
 Function brokerMachineStates() {
-    Return Get-BrokerMachine -AdminAddress $citrixController
+    Return Get-BrokerMachine -AdminAddress $citrixController -MaxRecordCount 9999
 }
 
 #Function to get a list of all sessions and current state from Broker
@@ -860,22 +860,22 @@ ForEach ($computer in $machines) {
     If  (-not ([String]::IsNullOrEmpty($authServiceAccount))) {
         #Only gather performance metrics for machines that we have access to
         WriteLog -Message "Starting performance measurement job for $computer using specified credentials" -Level Info -Verbose
-        
+
         #Check connection using CIM for performance measurements and run the performance measurement
         if ($cimSession = New-CimSession -Credential $myCreds -ComputerName $computer) {
-            WriteLog -Message "CIM Connection test for $computer successful" -Level Info -Verbose 
-            
+            WriteLog -Message "CIM Connection test for $computer successful" -Level Info -Verbose
+
             #Remove the session as it needs to be recreated in the RunSpace script
             Remove-CimSession -CimSession $cimSession
-            
+
             #Create a runspace for each job running
             $PowerShell = [powershell]::Create()
             $PowerShell.RunspacePool = $RunspacePool
 
             #Get the Thread ID of the script
             $ThreadID = [appdomain]::GetCurrentThreadId()
-            Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose           
-            
+            Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
+
             #Create the script that will run
             [void]$PowerShell.AddScript({
                 Param (
@@ -890,7 +890,7 @@ ForEach ($computer in $machines) {
                 $ThreadID = [appdomain]::GetCurrentThreadId()
                 Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
                 $cimSession = New-CimSession -ComputerName $computer -Credential $creds
-                
+
                 [pscustomobject]@{
                     Computer = $computer
                     CPU = (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage)
@@ -930,20 +930,20 @@ ForEach ($computer in $machines) {
         }
     } elseif (([String]::IsNullOrEmpty($authServiceAccount))) {
         if ($cimSession = New-CimSession -ComputerName $computer) {
-            WriteLog -Message "CIM Connection test for $computer successful using script run credentials" -Level Info -Verbose 
-            WriteLog -Message "Starting performance measurement job for $computer using script run credentials" -Level Info -Verbose              
-                
+            WriteLog -Message "CIM Connection test for $computer successful using script run credentials" -Level Info -Verbose
+            WriteLog -Message "Starting performance measurement job for $computer using script run credentials" -Level Info -Verbose
+
             #Remove the session as it needs to be recreated in the RunSpace script
             Remove-CimSession -CimSession $cimSession
-            
+
             #Create a runspace for each job running
             $PowerShell = [powershell]::Create()
             $PowerShell.RunspacePool = $RunspacePool
 
             #Get the Thread ID of the script
             $ThreadID = [appdomain]::GetCurrentThreadId()
-            Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose  
-            
+            Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
+
             #Create the script that will run
             [void]$PowerShell.AddScript({
                 Param (
@@ -951,14 +951,14 @@ ForEach ($computer in $machines) {
                     $creds,
                     $controller
                 )
-                
+
                 #Load the Citrix snap-ins
                 Add-PSSnapin Citrix*
 
                 $ThreadID = [appdomain]::GetCurrentThreadId()
                 Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
                 $cimSession = New-CimSession -ComputerName $computer
-                
+
                 [pscustomobject]@{
                     Computer = $computer
                     CPU = Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage
@@ -992,10 +992,10 @@ ForEach ($computer in $machines) {
             #Write out what the status is of the jobs
             "Available Runspaces in RunspacePool: {0}" -f $RunspacePool.GetAvailableRunspaces()
             "Remaining Jobs: {0}" -f @($jobs | Where-Object {$_.handle.iscompleted -ne 'Completed'}).Count
-                
+
         } else {
             WriteLog -Message "Error during CIM connection test using script run credentials for $computer not successful" -Level Warn -Verbose
-        }    
+        }
     }
 }
     #Verify completed - Echo out a final status after all jobs have executed
@@ -1004,7 +1004,7 @@ ForEach ($computer in $machines) {
 
     #Check if we have jobs to process
     if ($jobs) {
-    
+
     #Wait for all jobs to complete with a 5 second wait inbetween checks
         Do {
             Start-Sleep -Seconds 5
@@ -1017,7 +1017,7 @@ ForEach ($computer in $machines) {
             $_.PowerShell.Dispose()
         }
 
-        #Clear out array 
+        #Clear out array
         $jobs.clear()
 
         #Clear out all existing runspaces except the default
@@ -1059,7 +1059,7 @@ Function forceLogoffShutdown () {
     )
 
     WriteLog -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
-    $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($numberMachines) | Sort-Object -Property SessionCount
+    $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
     #For everymachine powered on up to the correct number, switch the poweroff
     foreach ($machine in $machinesToPowerOff) {
         #Set the machine in maintenance mode
@@ -1269,7 +1269,7 @@ Function LogoffShutdown () {
     )
 
     WriteLog -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
-    $machinesToPowerOff = $machinesOnAndNotMaintenance | Select-Object -First $($numberMachines) | Sort-Object -Descending -Property SessionCount
+    $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
     foreach ($machine in $machinesToPowerOff) {
         #Check for active sessions on each machine before shutting down
         $sessions = $(brokerUserSessions -machineName $($machine.MachineName) | Where-Object {$_.SessionState -eq "Active"} | Select-Object *)
@@ -1279,6 +1279,7 @@ Function LogoffShutdown () {
             If (!$testingOnly) { brokerAction -machineName $($machine.MachineName) -machineAction Shutdown }
         } else {
             WriteLog -Message "Active session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
+            maintenance -machine $machine.MachineName -maintenanceMode On
             foreach ($session in $sessions) {
                 WriteLog -Message "Sessions active on $($machine.DNSName), $($session.BrokeringUsername) - session length and state $($(New-TimeSpan -Start $($session.EstablishmentTime)).Minutes) Minutes - State $($session.SessionState) " -Level Info
             }
@@ -1309,7 +1310,7 @@ Function Startup () {
             #The number of machines in maintenance mode will service the request
             WriteLog -Message "The number of machines in maintenance mode is $($machinesOnAndMaintenance.RegistrationState.Count) and the number of machine(s) needed is $($numberMachines)" -Level Info
             WriteLog -Message "There are sufficient machines in maintenance mode to service the request" -Level Info
-            foreach ($machine in $($machinesOnAndMaintenance | Select-Object -First $($numberMachines))) {
+            foreach ($machine in $($machinesOnAndMaintenance | Get-Random -Count $($numberMachines))) {
                 #Take machines out of maintenance mode
                 WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode" -Level Info
                 If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}
@@ -1354,7 +1355,7 @@ Function Scaling () {
     if (($($machinesPoweredOff.MachineName.Count) -gt 0) -or ($null -ne $($machinesPoweredOff.MachineName.Count))) {
         WriteLog -Message "Scaling has been selected, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.machineName.count) machines currently powered off and available." -Level Info
         #Select a machine to be powered on
-        $machineToPowerOn = $machinesPoweredOff | Select-Object -First 1
+        $machineToPowerOn = $machinesPoweredOff | Get-Random -Count 1
         If ($null -eq $machineToPowerOn) {
             WriteLog -Message "There are no machines available to power on" -Level Info
             WriteLog -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
@@ -1448,11 +1449,11 @@ try {
         if($machineDetection -eq "tag") {
             $allUserSessions = foreach ($tag in $machineTags) {
                 brokerUserSessions | Where-Object {($_.Tags -contains $tag) -and ($_.Tags -notcontains $exclusionTag)}
-            } 
+            }
         }
 
         #Get excluded machines
-        if ($machineDetection -eq "prefix") {            
+        if ($machineDetection -eq "prefix") {
             $machinesExcluded = foreach ($prefix in $machinePrefix) {
                 brokerMachineStates  | Where-Object {($_.DNSName -match $prefix) -and ($_.Tags -contains $exclusionTag)}
             }
@@ -1470,7 +1471,7 @@ try {
         if($machineDetection -eq "tag") {
             $machinesExcluded = foreach ($tag in $machineTags) {
                 brokerMachineStates | Where-Object {($_.Tags -eq $tag) -and ($_.Tags -contains $exclusionTag)}
-            } 
+            }
         }
 
         #Filter down the main objects into sub variables for scripting ease
