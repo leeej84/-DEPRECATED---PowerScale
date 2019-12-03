@@ -893,7 +893,7 @@ ForEach ($computer in $machines) {
                 
                 [pscustomobject]@{
                     Computer = $computer
-                    CPU = (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage)
+                    CPU = (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Measure-Object -Property LoadPercentage -Average).Average
                     Memory = (Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
                     LoadIndex = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
                     Sessions = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
@@ -961,7 +961,7 @@ ForEach ($computer in $machines) {
                 
                 [pscustomobject]@{
                     Computer = $computer
-                    CPU = Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Select-Object LoadPercentage | Select-Object -ExpandProperty LoadPercentage
+                    CPU = (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Measure-Object -Property LoadPercentage -Average).Average
                     Memory = (Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
                     LoadIndex = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
                     Sessions = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
