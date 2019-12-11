@@ -868,6 +868,11 @@ ForEach ($computer in $machines) {
             #Remove the session as it needs to be recreated in the RunSpace script
             Remove-CimSession -CimSession $cimSession
 
+            #checking if the WinRM Version of the Remote Host is Version 2.0
+            if ((Test-WSMan -ComputerName $computer).ProductVersion.split()[-1] -eq "2.0") {
+                $WinRMcurrent = $false
+            }
+
             #Create a runspace for each job running
             $PowerShell = [powershell]::Create()
             $PowerShell.RunspacePool = $RunspacePool
@@ -893,8 +898,17 @@ ForEach ($computer in $machines) {
 
                 [pscustomobject]@{
                     Computer = $computer
-                    CPU = (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Measure-Object -Property LoadPercentage -Average).Average
-                    Memory = (Get-CimInstance -CimSession $cimSession -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
+                    CPU = if ($WinRMcurrent) {
+                        (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Measure-Object -Property LoadPercentage -Average).Average
+                    } else {
+                        (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor -Filter "Caption LIKE '%'"| Measure-Object -Property LoadPercentage -Average).Average
+                    }
+                    Memory = if ($WinRMcurrent) {
+                        (Get-CimInstance -CimSession $cimSession -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
+                    }
+                    else {
+                        (Get-CimInstance -CimSession $cimSession -ClassName Win32_OperatingSystem -Filter "Caption LIKE '%'"| Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
+                    }
                     LoadIndex = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
                     Sessions = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
                     Thread = $ThreadID
@@ -936,6 +950,12 @@ ForEach ($computer in $machines) {
             #Remove the session as it needs to be recreated in the RunSpace script
             Remove-CimSession -CimSession $cimSession
 
+            #checking if the WinRM Version of the Remote Host is Version 2.0
+            if ((Test-WSMan -ComputerName $computer).ProductVersion.split()[-1] -eq "2.0") {
+                $WinRMcurrent = $false
+            }
+            
+
             #Create a runspace for each job running
             $PowerShell = [powershell]::Create()
             $PowerShell.RunspacePool = $RunspacePool
@@ -961,8 +981,17 @@ ForEach ($computer in $machines) {
 
                 [pscustomobject]@{
                     Computer = $computer
-                    CPU = (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Measure-Object -Property LoadPercentage -Average).Average
-                    Memory = (Get-CimInstance -CimSession $cimSession -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
+                    CPU = if ($WinRMcurrent) {
+                        (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor | Measure-Object -Property LoadPercentage -Average).Average
+                    } else {
+                        (Get-CimInstance -CimSession $cimSession -ClassName CIM_Processor -Filter "Caption LIKE '%'"| Measure-Object -Property LoadPercentage -Average).Average
+                    }
+                    Memory = if ($WinRMcurrent) {
+                        (Get-CimInstance -CimSession $cimSession -ClassName Win32_OperatingSystem | Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
+                    }
+                    else {
+                        (Get-CimInstance -CimSession $cimSession -ClassName Win32_OperatingSystem -Filter "Caption LIKE '%'"| Select-Object @{ Name = 'Memory';  Expression = {[int](($($_.TotalVisibleMemorySize - $_.FreePhysicalMemory) / $_.TotalVisibleMemorySize)  * 100)}} | Select-Object -ExpandProperty Memory)
+                    }
                     LoadIndex = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand LoadIndex
                     Sessions = (Get-BrokerMachine -AdminAddress $controller | Where-Object {$_.DNSName -eq $computer}) | Select-Object -expand SessionCount
                     Thread = $ThreadID
