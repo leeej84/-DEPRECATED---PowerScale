@@ -1309,7 +1309,7 @@ Function LogoffShutdown () {
             If (!$testingOnly) { brokerAction -machineName $($machine.MachineName) -machineAction Shutdown }
         } else {
             WriteLog -Message "Active session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
-            maintenance -machine $machine.MachineName -maintenanceMode On
+            maintenance -machine $machine -maintenanceMode On
             foreach ($session in $sessions) {
                 WriteLog -Message "Sessions active on $($machine.DNSName), $($session.BrokeringUsername) - session length and state $($(New-TimeSpan -Start $($session.EstablishmentTime)).Minutes) Minutes - State $($session.SessionState) " -Level Info
             }
