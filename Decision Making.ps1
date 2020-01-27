@@ -79,6 +79,7 @@ $userLogoffFirstInterval = $configInfo.userLogoffFirstInterval
 $userLogoffFirstMessage = $configInfo.userLogoffFirstMessage
 $userLogoffSecondInterval = $configInfo.userLogoffSecondInterval
 $userLogoffSecondMessage = $configInfo.userLogoffSecondMessage
+$maintenanceReleaseTime = $configInfo.maintenanceReleaseTime
 $smtpServer = $configInfo.smtpServer
 $smtpToAddress = $configInfo.smtpToAddress
 $smtpFromAddress = $configInfo.smtpFromAddress
@@ -106,6 +107,7 @@ if ($inputTime) {
         startTime = [datetime]::ParseExact($("$($inputDate) $($businessStartTime)"), "dd/MM/yyyy HH:mm", $null)
         endTime = [datetime]::ParseExact($("$($inputDate) $($businessCloseTime)"), "dd/MM/yyyy HH:mm", $null)
         backupTime = [datetime]::ParseExact($("$($inputDate) $($dashboardBackupTime)"), "dd/MM/yyyy HH:mm", $null)
+        releaseMaintenanceTime = [datetime]::ParseExact($("$($inputDate) $($maintenanceReleaseTime)"), "dd/MM/yyyy HH:mm", $null)
         timeNow = $([datetime]::ParseExact("$inputTime", "dd/MM/yyyy HH:mm", $null))
     }
 } else {
@@ -113,6 +115,7 @@ if ($inputTime) {
         startTime = [datetime]::ParseExact($("$($dateNow) $($businessStartTime)"), "dd/MM/yy HH:mm", $null)
         endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
         backupTime = [datetime]::ParseExact($("$($dateNow) $($dashboardBackupTime)"), "dd/MM/yy HH:mm", $null)
+        releaseMaintenanceTime = [datetime]::ParseExact($("$($dateNow) $($maintenanceReleaseTime)"), "dd/MM/yy HH:mm", $null)
         timeNow = $(Get-Date)
     }
 }
@@ -1520,11 +1523,15 @@ if ($performanceScaling) {
     #Run the performance monitoring script to create XML files
     WriteLog -Message "Performance scaling is enabled - attempting performance metrics capture" -Level Info
     try {
-        $overallPerformance = performanceAnalysis -machines $($machinesOnAndNotMaintenance.DNSName) -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
+        if ($machinesOnAndNotMaintenance.RegistrationState.count -eq 0) {
+            WriteLog -Message "There are no machines powered on and not in maintenance mode to collect performance metrics from, skipping performance collection" -Level Info
+        } else {
+            $overallPerformance = performanceAnalysis -machines $($machinesOnAndNotMaintenance.DNSName) -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
+        }
     } catch {
         WriteLog -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and CMI. " -Level Error
-        #Log out the latest error - does not mean performance measurement was unsuccessful on all machines
-        Exit
+        WriteLog -Message "There were $($machinesOnAndMaintenance.RegistrationState.Count) machines On and in maintnance mode" -Level Error
+        #Log out the latest error - does not mean performance measurement was unsuccessful on all machines        
     }
 }
 
@@ -1545,6 +1552,17 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
+        #If there are machines on and in maintenance mode from draining and we are so many hours before the business start time then take these machines out of maintenance mode
+        WriteLog -Message "The time is currently $($timesObj.timeNow.Hour):$($timesObj.timeNow.Minute) and the maintenance release time is $($timesObj.releaseMaintenanceTime.Hour):$($timesObj.releaseMaintenanceTime.Minute)"
+        If (($machinesOnAndMaintenance.RegistrationState.Count -gt 0) -and (($timesObj.timeNow.Hour -ge $timesObj.releaseMaintenanceTime.Hour) -and ($timesobj.timeNow.Minute -ge $timesObj.releaseMaintenanceTime.Minute))) {           
+            #Take machines out of maintenance mode that are powered on and registered
+            WriteLog -Message "Draining of machines has happened overnight, there are machines left in maintenance mode" -Level Info
+            foreach ($machine in $machinesOnAndMaintenance) {
+                #Take machines out of maintenance mode
+                WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode due to maintenance release trigger" -Level Info
+                If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}
+            }
+        }
         $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         If ($action.Task -eq "Scaling" -and $performanceScaling) {
             #Perform scaling calculations
@@ -1616,7 +1634,11 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
 }
 
 #Generate the Dashboard Files
-GenerateDashboard
+If (!$null -eq $overallPerformance) {
+    GenerateDashboard
+} else {
+    WriteLog -Message "No performance information was collected, skipping Dashboard update" -Level Info
+}
 
 If ((($($timesObj.timeNow) -ge $($timesObj.backupTime)) -and ($($timesObj.timeNow) -le $($($timesObj.backupTime) + $scriptRunInterval)))) {
     Write-Output "Circular Dashboard Maintenance Triggered"
