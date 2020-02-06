@@ -1302,7 +1302,7 @@ Function LogoffShutdown () {
 
     WriteLog -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
     If ($machinesOnAndNotMaintenance.DNSName.Count -eq $outOfHoursMachines) {
-        $machinesToPowerOff = $machinesOnAndMaintenance | Sort-Object -Property SessionCount
+        $machinesToPowerOff = $machinesOnAndMaintenance | Sort-Object -Property DNSName
     } else {
         $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines) 
     }
@@ -1522,6 +1522,7 @@ try {
         $machinesOnAndNotMaintenance = $allMachines | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
         $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
         $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
+        $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")
 
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
@@ -1531,14 +1532,14 @@ if ($performanceScaling) {
     #Run the performance monitoring script to create XML files
     WriteLog -Message "Performance scaling is enabled - attempting performance metrics capture" -Level Info
     try {
-        if ($machinesOnAndNotMaintenance.RegistrationState.count -eq 0) {
-            WriteLog -Message "There are no machines powered on and not in maintenance mode to collect performance metrics from, skipping performance collection" -Level Info
+        if ($machinesOnAndNotMaintenanc.RegistrationState.count -eq 0) {
+            WriteLog -Message "There are no machines powered on and available to collect performance metrics from, skipping performance collection" -Level Info
         } else {
-            $overallPerformance = performanceAnalysis -machines $($machinesOnAndNotMaintenance.DNSName) -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
+            $overallPerformance = performanceAnalysis -machines $($performanceMonitoringMachines.DNSName) -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
         }
     } catch {
         WriteLog -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and CMI. " -Level Error
-        WriteLog -Message "There were $($machinesOnAndMaintenance.RegistrationState.Count) machines On and in maintnance mode" -Level Error
+        WriteLog -Message "There were $($performanceMonitoringMachines.RegistrationState.Count) machines On and in maintnance mode" -Level Error
         #Log out the latest error - does not mean performance measurement was unsuccessful on all machines        
     }
 }
