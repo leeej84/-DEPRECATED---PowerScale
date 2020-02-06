@@ -1522,7 +1522,7 @@ try {
         $machinesOnAndNotMaintenance = $allMachines | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
         $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
         $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
-        $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")
+        $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")}
 
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
@@ -1532,7 +1532,7 @@ if ($performanceScaling) {
     #Run the performance monitoring script to create XML files
     WriteLog -Message "Performance scaling is enabled - attempting performance metrics capture" -Level Info
     try {
-        if ($machinesOnAndNotMaintenanc.RegistrationState.count -eq 0) {
+        if ($performanceMonitoringMachines.RegistrationState.count -eq 0) {
             WriteLog -Message "There are no machines powered on and available to collect performance metrics from, skipping performance collection" -Level Info
         } else {
             $overallPerformance = performanceAnalysis -machines $($performanceMonitoringMachines.DNSName) -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
