@@ -161,7 +161,7 @@ Function GenerateDashboard() {
             $jsonData.'times.json'.json.labels += $(@($timesObj.timeNow.ToShortTimeString() + "-" + $timesObj.timeNow.ToShortDateString()))
             $jsonData.'machinesOn.json'.json.data += $machinesOnAndNotMaintenance.DNSName.count
             $jsonData.'machinesScaled.json'.json.data += $machinesScaled.DNSName.count
-            $jsonData.'machinesMaintenance.json'.json.data += $machinesMaintenance.DNSName.count
+            $jsonData.'machinesMaintenance.json'.json.data += $machinesOnAndMaintenance.DNSName.count
             $jsonData.'machinesExcluded.json'.json.data += $machinesExcluded.DNSName.count
             $jsonData.'farmCPU.json'.json.data += $overallPerformance.overallCPU.Average
             $jsonData.'farmMemory.json'.json.data += $overallPerformance.overallMemory.Average
@@ -191,7 +191,7 @@ Function GenerateDashboard() {
         $jsonData.Add($readData)
         $readData = [PSCustomObject]@{'machinesScaled.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesScaled.DNSName.count)}}}
         $jsonData.Add($readData)
-        $readData = [PSCustomObject]@{'machinesMaintenance.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesMaintenance.DNSName.count)}}}
+        $readData = [PSCustomObject]@{'machinesMaintenance.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesOnAndMaintenance.DNSName.count)}}}
         $jsonData.Add($readData)
         $readData = [PSCustomObject]@{'machinesExcluded.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesExcluded.DNSName.count)}}}
         $jsonData.Add($readData)
