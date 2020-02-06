@@ -1301,7 +1301,11 @@ Function LogoffShutdown () {
     )
 
     WriteLog -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
-    $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines) 
+    If ($machinesOnAndNotMaintenance.DNSName.Count -eq 0) {
+        $machinesToPowerOff = $machinesOnAndMaintenance | Sort-Object -Property SessionCount
+    } else {
+        $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines) 
+    }
 
     foreach ($machine in $machinesToPowerOff) {
         #Check for active sessions on each machine before shutting down
