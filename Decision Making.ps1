@@ -1301,7 +1301,7 @@ Function LogoffShutdown () {
     )
 
     WriteLog -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
-    If ($machinesOnAndNotMaintenance.DNSName.Count -eq 0) {
+    If ($machinesOnAndNotMaintenance.DNSName.Count -eq $outOfHoursMachines) {
         $machinesToPowerOff = $machinesOnAndMaintenance | Sort-Object -Property SessionCount
     } else {
         $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines) 
@@ -1314,8 +1314,12 @@ Function LogoffShutdown () {
             WriteLog -Message "No active session found on $($machine.DNSName), performing shutdown" -Level Info
             #Shutdown the machines as there are no active sessions (this will include disconnected sessions)
             If (!$testingOnly) { brokerAction -machineName $($machine.MachineName) -machineAction Shutdown }
+            #Take the machine that has been shutdown out of maintenance mode
+            WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode as its been drained and shutdown" -Level Info
+            maintenance -machine $machine -maintenanceMode Off
         } else {
             WriteLog -Message "Active session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
+            WriteLog -Message "Placing $($machine.DNSName), into maintenance mode" -Level Info
             maintenance -machine $machine -maintenanceMode On
             foreach ($session in $sessions) {
                 WriteLog -Message "Sessions active on $($machine.DNSName), $($session.BrokeringUsername) - session length and state $($(New-TimeSpan -Start $($session.EstablishmentTime)).Minutes) Minutes - State $($session.SessionState) " -Level Info
@@ -1567,7 +1571,12 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
                 If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}
             }
         }
-        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
+        If ($machinesOnAndNotMaintenance.DNSName.count -eq $outOfHoursMachines) {
+            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndMaintenance.RegistrationState.Count
+        } else {
+            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
+        }
+        
         If ($action.Task -eq "Scaling" -and $performanceScaling) {
             #Perform scaling calculations
             Scaling
