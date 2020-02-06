@@ -1560,19 +1560,8 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
-        #If there are machines on and in maintenance mode from draining and we are so many hours before the business start time then take these machines out of maintenance mode
-        WriteLog -Message "The time is currently $($timesObj.timeNow.Hour):$($timesObj.timeNow.Minute) and the maintenance release time is $($timesObj.releaseMaintenanceTime.Hour):$($timesObj.releaseMaintenanceTime.Minute)"
-        If (($machinesOnAndMaintenance.RegistrationState.Count -gt 0) -and (($timesObj.timeNow.Hour -ge $timesObj.releaseMaintenanceTime.Hour) -and ($timesobj.timeNow.Minute -ge $timesObj.releaseMaintenanceTime.Minute))) {           
-            #Take machines out of maintenance mode that are powered on and registered
-            WriteLog -Message "Draining of machines has happened overnight, there are machines left in maintenance mode" -Level Info
-            foreach ($machine in $machinesOnAndMaintenance) {
-                #Take machines out of maintenance mode
-                WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode due to maintenance release trigger" -Level Info
-                If (!$testingOnly) {maintenance -machine $machine -maintenanceMode Off}
-            }
-        }
-        If ($machinesOnAndNotMaintenance.DNSName.count -eq $outOfHoursMachines) {
-            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndMaintenance.RegistrationState.Count
+        If (($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count) -gt $outOfHoursMachines) {
+            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count)
         } else {
             $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         }
