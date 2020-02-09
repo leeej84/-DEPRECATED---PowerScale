@@ -107,7 +107,6 @@ if ($inputTime) {
         startTime = [datetime]::ParseExact($("$($inputDate) $($businessStartTime)"), "dd/MM/yyyy HH:mm", $null)
         endTime = [datetime]::ParseExact($("$($inputDate) $($businessCloseTime)"), "dd/MM/yyyy HH:mm", $null)
         backupTime = [datetime]::ParseExact($("$($inputDate) $($dashboardBackupTime)"), "dd/MM/yyyy HH:mm", $null)
-        releaseMaintenanceTime = [datetime]::ParseExact($("$($inputDate) $($maintenanceReleaseTime)"), "dd/MM/yyyy HH:mm", $null)
         timeNow = $([datetime]::ParseExact("$inputTime", "dd/MM/yyyy HH:mm", $null))
     }
 } else {
@@ -115,7 +114,6 @@ if ($inputTime) {
         startTime = [datetime]::ParseExact($("$($dateNow) $($businessStartTime)"), "dd/MM/yy HH:mm", $null)
         endTime = [datetime]::ParseExact($("$($dateNow) $($businessCloseTime)"), "dd/MM/yy HH:mm", $null)
         backupTime = [datetime]::ParseExact($("$($dateNow) $($dashboardBackupTime)"), "dd/MM/yy HH:mm", $null)
-        releaseMaintenanceTime = [datetime]::ParseExact($("$($dateNow) $($maintenanceReleaseTime)"), "dd/MM/yy HH:mm", $null)
         timeNow = $(Get-Date)
     }
 }
