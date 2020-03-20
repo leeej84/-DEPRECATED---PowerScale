@@ -10,6 +10,7 @@ $machineCatalogs = "Catalog 1","Catalog 2"                                      
 $machineTags = "powerGroup1","powerGroup2"                                                  #Machines tags to target - add addtional ones like this: $machineTags = "Tag 1","Tag 2"
 $businessStartTime =  "06:00"                                                               #Start time of the business
 $businessCloseTime = "18:00"                                                                #End time of the business
+$businessDays = "Mon","Tue","Wed","Thu","Fri"                                               #Business days indicated by the three initial letters like this: $businessDays = "Mon","Tue","Wed" etc.
 $outOfHoursMachines = "1"                                                                   #How many machines should be powered on during the weekends
 $inHoursMachines = "1"                                                                      #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
 $machineScaling = "CPU"                                                                     #Options are (Schedule, CPU, Memory, Index or Session)
@@ -68,7 +69,9 @@ $configContent = [PSCustomObject]@{
     businessStartTime =  $businessStartTime
     businessCloseTimeComment = "End time of the business"
     businessCloseTime = $businessCloseTime
-    outOfHoursMachinesComment = "How many machines should be powered on during the weekends"
+    businessDaysComment = "Specification of business days"
+    businessDays = $businessDays
+    outOfHoursMachinesComment = "How many machines should be powered on during the off hours"
     outOfHoursMachines = $outOfHoursMachines
     inHoursMachinesComment = "How many machines should be powered on during the day (InsideOfHours will take into account further machines)"
     inHoursMachines = $inHoursMachines

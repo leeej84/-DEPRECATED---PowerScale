@@ -63,6 +63,7 @@ $machineTags = $configInfo.machineTags
 $businessStartTime =  $configInfo.businessStartTime
 $businessCloseTime = $configInfo.businessCloseTime
 $outOfHoursMachines = $configInfo.outOfHoursMachines
+$businessDays = $configInfo.businessDays
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling
 $farmCPUThreshhold = $configInfo.farmCPUThreshhold
@@ -557,20 +558,18 @@ Function SendEmail() {
     }
 }
 
-#Function to check if its a weekday
-Function IsWeekDay() {
+#Function to check if its a business day
+Function IsBusinessDay() {
     [CmdletBinding()]
     Param
     (
-        [Parameter(Mandatory=$true, HelpMessage = "The date that needs to be compared to weekdays")]
+        [Parameter(Mandatory = $true, HelpMessage = "The date that needs to be compared against configured business days")]
         [ValidateNotNullOrEmpty()]
         [datetime]$date
     )
-
-    #Weekdays
-    $weekdays = "Monday","Tuesday","Wednesday","Thursday","Friday"
-    #See if the current day of the week sits inside of any other weekdays, returns true or false
-    $null -ne ($weekdays | Where-Object { $($date.DayOfWeek) -match $_ })  # returns $true
+   
+    #See if the current day is defined as business day, returns true or false
+    $null -ne ($businessDays | Where-Object { $($date.DayOfWeek).ToString().Substring(0, 3) -match $_ })  # returns $true
 }
 
 #Function to check if inside of business hours or outside to business hours
@@ -1553,9 +1552,9 @@ If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController)) {
 #Kick off Circular logging maintenance
 CircularLogging
 
-#Is it a weekday?
-If ($(IsWeekDay -date $($timesObj.timeNow))) {
-    #If it is a weekday, then check if we are within working hours or not
+#Is it a business day?
+If ($(IsBusinessDay -date $($timesObj.timeNow))) {
+    #If it is a business day, then check if we are within working hours or not
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
@@ -1611,9 +1610,9 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         WriteLog -Message "There has been an error calculating the date or time, review the logs" -Level Error
         SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error calculating the date or time, please review the attached logs" -attachment $logLocation -Level Error
     }
-} Else { #Its the weekend
+} Else { #It is not a business day
     $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count
-    WriteLog -Message "It is currently a weekend - performing machine analysis" -Level Info
+    WriteLog -Message "It is not a business day - performing machine analysis" -Level Info
     If ($action.Task -eq "Scaling" -and $performanceScaling) {
         #Perform scaling calculations
         Scaling
