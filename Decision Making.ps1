@@ -701,13 +701,13 @@ Function brokerAction() {
     }
 
     #Remove the scaling tag if one exists
-    if (Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $machineName).uid) {
+    if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $machineName).uid).Name -contains "Scaled-On") {
         WriteLog -Message "Remove Scaling tag from $machineName" -Level Info
         Remove-BrokerTag "Scaled-On" -Machine $machineName
     }
 }
 
-Function maintenance() {
+  Function maintenance() {
     [CmdletBinding()]
     Param
     (
@@ -1585,7 +1585,7 @@ If ($(IsBusinessDay -date $($timesObj.timeNow))) {
         if ($($action.Number) -eq 0) {
         #Remove the scaling tag if one exists
             foreach ($machine in $machinesScaled) {
-                if (Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid) {
+                if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
                     WriteLog -Message "We're out of hours with the correct number of machines - removing scaling tag from $($machine.MachineName)" -Level Info
                     Remove-BrokerTag "Scaled-On" -Machine $machine
                 }
