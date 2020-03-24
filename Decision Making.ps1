@@ -1091,9 +1091,16 @@ Function forceLogoffShutdown () {
     $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
     #For everymachine powered on up to the correct number, switch the poweroff
     foreach ($machine in $machinesToPowerOff) {
-        #Set the machine in maintenance mode
-        WriteLog -Message "Setting $($machine.DNSName) maintenance mode On"
-        If (!$testingOnly) { maintenance -machine $machine -maintenanceMode On }
+        #Check if machine is already in maintenance, otherwise set in maintenance mode
+        if (!((Get-BrokerMachine -Uid $machine.Uid).InMaintenanceMode))
+        {
+            #Set the machine in maintenance mode
+            WriteLog -Message "Setting $($machine.DNSName) maintenance mode On"
+            If (!$testingOnly) { maintenance -machine $machine -maintenanceMode On }
+        }
+        else {
+            WriteLog -Message "$($machine.DNSName) already in maintenance mode"
+        }
         #Generate a list of sessions per machine
         $logoffSessions = $allUserSessions | Where-Object {$_.MachineName -eq $machine.MachineName}
         WriteLog -Message "Found $($logOffSessions.UserName.Count) user sessions on $($machine.DNSName)"
@@ -1316,8 +1323,15 @@ Function LogoffShutdown () {
             maintenance -machine $machine -maintenanceMode Off
         } else {
             WriteLog -Message "Active session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
-            WriteLog -Message "Placing $($machine.DNSName), into maintenance mode" -Level Info
-            maintenance -machine $machine -maintenanceMode On
+            #Check if machine is already in maintenance, otherwise set in maintenance mode 
+            if (!((Get-BrokerMachine -Uid $machine.Uid).InMaintenanceMode))
+            {
+                WriteLog -Message "Placing $($machine.DNSName), into maintenance mode" -Level Info
+                maintenance -machine $machine -maintenanceMode On
+            }
+            else {
+                WriteLog -Message "Machine $($machine.DNSName) already in maintenance mode" -Level Info
+            }
             foreach ($session in $sessions) {
                 WriteLog -Message "Sessions active on $($machine.DNSName), $($session.BrokeringUsername) - session length and state $($(New-TimeSpan -Start $($session.EstablishmentTime)).Minutes) Minutes - State $($session.SessionState) " -Level Info
             }
