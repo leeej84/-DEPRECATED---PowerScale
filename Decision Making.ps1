@@ -63,6 +63,7 @@ $machineTags = $configInfo.machineTags
 $businessStartTime =  $configInfo.businessStartTime
 $businessCloseTime = $configInfo.businessCloseTime
 $outOfHoursMachines = $configInfo.outOfHoursMachines
+$businessDays = $configInfo.businessDays
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling
 $farmCPUThreshhold = $configInfo.farmCPUThreshhold
@@ -557,20 +558,18 @@ Function SendEmail() {
     }
 }
 
-#Function to check if its a weekday
-Function IsWeekDay() {
+#Function to check if its a business day
+Function IsBusinessDay() {
     [CmdletBinding()]
     Param
     (
-        [Parameter(Mandatory=$true, HelpMessage = "The date that needs to be compared to weekdays")]
+        [Parameter(Mandatory = $true, HelpMessage = "The date that needs to be compared against configured business days")]
         [ValidateNotNullOrEmpty()]
         [datetime]$date
     )
-
-    #Weekdays
-    $weekdays = "Monday","Tuesday","Wednesday","Thursday","Friday"
-    #See if the current day of the week sits inside of any other weekdays, returns true or false
-    $null -ne ($weekdays | Where-Object { $($date.DayOfWeek) -match $_ })  # returns $true
+   
+    #See if the current day is defined as business day, returns true or false
+    $null -ne ($businessDays | Where-Object { $($date.DayOfWeek).ToString().Substring(0, 3) -match $_ })  # returns $true
 }
 
 #Function to check if inside of business hours or outside to business hours
@@ -702,13 +701,13 @@ Function brokerAction() {
     }
 
     #Remove the scaling tag if one exists
-    if (Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $machineName).uid) {
+    if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $machineName).uid).Name -contains "Scaled-On") {
         WriteLog -Message "Remove Scaling tag from $machineName" -Level Info
         Remove-BrokerTag "Scaled-On" -Machine $machineName
     }
 }
 
-Function maintenance() {
+  Function maintenance() {
     [CmdletBinding()]
     Param
     (
@@ -1092,9 +1091,16 @@ Function forceLogoffShutdown () {
     $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
     #For everymachine powered on up to the correct number, switch the poweroff
     foreach ($machine in $machinesToPowerOff) {
-        #Set the machine in maintenance mode
-        WriteLog -Message "Setting $($machine.DNSName) maintenance mode On"
-        If (!$testingOnly) { maintenance -machine $machine -maintenanceMode On }
+        #Check if machine is already in maintenance, otherwise set in maintenance mode
+        if (!((Get-BrokerMachine -Uid $machine.Uid).InMaintenanceMode))
+        {
+            #Set the machine in maintenance mode
+            WriteLog -Message "Setting $($machine.DNSName) maintenance mode On"
+            If (!$testingOnly) { maintenance -machine $machine -maintenanceMode On }
+        }
+        else {
+            WriteLog -Message "$($machine.DNSName) already in maintenance mode"
+        }
         #Generate a list of sessions per machine
         $logoffSessions = $allUserSessions | Where-Object {$_.MachineName -eq $machine.MachineName}
         WriteLog -Message "Found $($logOffSessions.UserName.Count) user sessions on $($machine.DNSName)"
@@ -1317,8 +1323,15 @@ Function LogoffShutdown () {
             maintenance -machine $machine -maintenanceMode Off
         } else {
             WriteLog -Message "Active session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
-            WriteLog -Message "Placing $($machine.DNSName), into maintenance mode" -Level Info
-            maintenance -machine $machine -maintenanceMode On
+            #Check if machine is already in maintenance, otherwise set in maintenance mode 
+            if (!((Get-BrokerMachine -Uid $machine.Uid).InMaintenanceMode))
+            {
+                WriteLog -Message "Placing $($machine.DNSName), into maintenance mode" -Level Info
+                maintenance -machine $machine -maintenanceMode On
+            }
+            else {
+                WriteLog -Message "Machine $($machine.DNSName) already in maintenance mode" -Level Info
+            }
             foreach ($session in $sessions) {
                 WriteLog -Message "Sessions active on $($machine.DNSName), $($session.BrokeringUsername) - session length and state $($(New-TimeSpan -Start $($session.EstablishmentTime)).Minutes) Minutes - State $($session.SessionState) " -Level Info
             }
@@ -1553,9 +1566,9 @@ If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController)) {
 #Kick off Circular logging maintenance
 CircularLogging
 
-#Is it a weekday?
-If ($(IsWeekDay -date $($timesObj.timeNow))) {
-    #If it is a weekday, then check if we are within working hours or not
+#Is it a business day?
+If ($(IsBusinessDay -date $($timesObj.timeNow))) {
+    #If it is a business day, then check if we are within working hours or not
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
@@ -1586,7 +1599,7 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         if ($($action.Number) -eq 0) {
         #Remove the scaling tag if one exists
             foreach ($machine in $machinesScaled) {
-                if (Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid) {
+                if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
                     WriteLog -Message "We're out of hours with the correct number of machines - removing scaling tag from $($machine.MachineName)" -Level Info
                     Remove-BrokerTag "Scaled-On" -Machine $machine
                 }
@@ -1611,9 +1624,9 @@ If ($(IsWeekDay -date $($timesObj.timeNow))) {
         WriteLog -Message "There has been an error calculating the date or time, review the logs" -Level Error
         SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error calculating the date or time, please review the attached logs" -attachment $logLocation -Level Error
     }
-} Else { #Its the weekend
+} Else { #It is not a business day
     $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count
-    WriteLog -Message "It is currently a weekend - performing machine analysis" -Level Info
+    WriteLog -Message "It is not a business day - performing machine analysis" -Level Info
     If ($action.Task -eq "Scaling" -and $performanceScaling) {
         #Perform scaling calculations
         Scaling
