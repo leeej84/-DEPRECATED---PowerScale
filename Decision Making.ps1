@@ -1404,36 +1404,69 @@ Function Startup () {
 
 Function Scaling () {
     WriteLog -Message "The current running machines matches the target machines number, performing scaling analysis" -Level Info
-    if (($($machinesPoweredOff.MachineName.Count) -gt 0) -or ($null -ne $($machinesPoweredOff.MachineName.Count))) {
-        WriteLog -Message "Scaling has been selected, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.machineName.count) machines currently powered off and available." -Level Info
-        #Select a machine to be powered on
-        $machineToPowerOn = $machinesPoweredOff | Get-Random -Count 1
-        If ($null -eq $machineToPowerOn) {
-            WriteLog -Message "There are no machines available to power on" -Level Info
-            WriteLog -Message "PowerScale did not find any machines that are powered off to be turned on, please add more machines into your catalog(s)" -Level Warn
+    if (($($machinesPoweredOff.MachineName.Count) -gt 0) -or ($null -ne $($machinesPoweredOff.MachineName.Count)) -or (($machinesOnAndMaintenance.MachineName.count) -gt 0)) {
+        WriteLog -Message "Scaling has been selected, the current scaling metric is $machineScaling and there are $($machinesPoweredOff.machineName.count) machines currently powered off and there are $($machinesOnAndMaintenance.MachineName.count) in maintenance mode available." -Level Info
+        #Select a machine to be powered on, prefer a machine in maintenance to a machine powered off unless its excluded.
+        
+        If (($machinesOnAndMaintenance.MachineName.count) -gt 0) {
+            #Select a machine from maintenance mode if it exists
+            $machineToPowerOn = $machinesOnAndMaintenance | Get-Random -Count 1
         } else {
-            WriteLog -Message "Machine selected to be powered on is $($machineToPowerOn.DNSName)" -Level Info
+            #No machines available in maintenance so fire up a powered off one
+            $machineToPowerOn = $machinesPoweredOff | Get-Random -Count 1
+        }
+
+        If ($null -eq $machineToPowerOn) {
+            WriteLog -Message "There are no machines available to power on or none in maintenance mode" -Level Info
+            WriteLog -Message "PowerScale did not find any machines that are powered off or in maintenance mode to be put into service, please add more machines into your catalog(s)" -Level Warn
+        } else {
+            WriteLog -Message "Machine selected to be placed into service is $($machineToPowerOn.DNSName) the machine is powered $($machineToPowerOn.PowerState) and maintename mode is $($machineToPowerOn.InMaintenanceMode)" -Level Info
 
             #Perform logic on scaling
             if (($overallPerformance.overallCPU.Average -gt $farmCPUThreshhold) -and ($machineScaling -eq "CPU")) {
-                WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the CPU threshhold has been triggered." -Level Info
-                If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
-                If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                #If the machine selected is in mainenance mode, take it out, else issue a power command
+                if ($machineToPowerOn.InMaintenanceMode) {
+                    WriteLog -Message "Taking $($machineToPowerOn.DNSName) out of maintenance mode, the CPU threshhold has been triggered at $($overallPerformance.overallCPU.Average)." -Level Info
+                    If (!$testingOnly) { maintenance -machine $machineToPowerOn -maintenanceMode Off }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                } else {                
+                    WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the CPU threshhold has been triggered at $($overallPerformance.overallCPU.Average)." -Level Info
+                    If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                }
             }
             if (($overallPerformance.overallMemory.Average -gt $farmMemoryThreshhold) -and ($machineScaling -eq "Memory")) {
-                WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Memory threshhold has been triggered." -Level Info
-                If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
-                If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                if ($machineToPowerOn.InMaintenanceMode) {
+                    WriteLog -Message "Taking $($machineToPowerOn.DNSName) out of maintenance mode, the Memory threshhold has been triggered at $($overallPerformance.overallMemory.Average)." -Level Info
+                    If (!$testingOnly) { maintenance -machine $machineToPowerOn -maintenanceMode Off }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                } else {                
+                    WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Memory threshhold has been triggered at $($overallPerformance.overallMemory.Average)." -Level Info
+                    If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                }
             }
             if (($overallPerformance.overallIndex.Average -gt $farmIndexThreshhold) -and ($machineScaling -eq "Index")) {
-                WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Index threshhold has been triggered." -Level Info
-                If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
-                If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                if ($machineToPowerOn.InMaintenanceMode) {
+                    WriteLog -Message "Taking $($machineToPowerOn.DNSName) out of maintenance mode, the Index threshhold has been triggered at $($overallPerformance.overallIndex.Average)." -Level Info
+                    If (!$testingOnly) { maintenance -machine $machineToPowerOn -maintenanceMode Off }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                } else {
+                    WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Index threshhold has been triggered at $($overallPerformance.overallIndex.Average)." -Level Info
+                    If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                }
             }
             if (($overallPerformance.overallSession.Average -gt $farmSessionThreshhold) -and ($machineScaling -eq "Session")) {
-                WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Session threshhold has been triggered." -Level Info
-                If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
-                If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                if ($machineToPowerOn.InMaintenanceMode) {
+                    WriteLog -Message "Taking $($machineToPowerOn.DNSName) out of maintenance mode, the Session threshhold has been triggered at $($overallPerformance.overallSession.Average)." -Level Info
+                    If (!$testingOnly) { maintenance -machine $machineToPowerOn -maintenanceMode Off }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                } else {
+                    WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Session threshhold has been triggered at $($overallPerformance.overallSession.Average)." -Level Info
+                    If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.DNSName -machineAction TurnOn }
+                    If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.MachineName -AdminAddress $citrixController }
+                }
             }
         }
     }
