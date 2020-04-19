@@ -80,7 +80,6 @@ $userLogoffFirstInterval = $configInfo.userLogoffFirstInterval
 $userLogoffFirstMessage = $configInfo.userLogoffFirstMessage
 $userLogoffSecondInterval = $configInfo.userLogoffSecondInterval
 $userLogoffSecondMessage = $configInfo.userLogoffSecondMessage
-$maintenanceReleaseTime = $configInfo.maintenanceReleaseTime
 $smtpServer = $configInfo.smtpServer
 $smtpToAddress = $configInfo.smtpToAddress
 $smtpFromAddress = $configInfo.smtpFromAddress
@@ -1566,7 +1565,7 @@ try {
         $machinesOnAndNotMaintenance = $allMachines | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
         $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
         $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
-        $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")}
+        $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and (-not $_.InMaintenanceMode)}
 
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
