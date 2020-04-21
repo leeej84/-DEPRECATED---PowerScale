@@ -11,8 +11,12 @@ $machineTags = "powerGroup1","powerGroup2"                                      
 $businessStartTime =  "06:00"                                                               #Start time of the business
 $businessCloseTime = "18:00"                                                                #End time of the business
 $businessDays = "Mon","Tue","Wed","Thu","Fri"                                               #Business days indicated by the three initial letters like this: $businessDays = "Mon","Tue","Wed" etc.
-$outOfHoursMachines = "1"                                                                   #How many machines should be powered on during the weekends
-$inHoursMachines = "1"                                                                      #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
+$additionalScaling = $false                                                                 #Specify to allow an additional scale window for more than a single machine scaling, for environments where mornings need more than single machine scaling
+$additionalScaleStartTime = "06:00"                                                         #The start time for additional machine scaling
+$additionalScaleEndTime = "08:00"                                                           #The end time for additional machine scaling where scaling returns to single machines
+$additionalMachineScaleValue = 2                                                            #Value for the amount of machines to scale each time scaling is required within this additional scale window
+$outOfHoursMachines = 1                                                                     #How many machines should be powered on during the weekends
+$inHoursMachines = 1                                                                        #How many machines should be powered on during the day (InsideOfHours will take into account further machines)
 $machineScaling = "CPU"                                                                     #Options are (Schedule, CPU, Memory, Index or Session)
 $farmCPUThreshhold = 85                                                                     #Farm CPU threshhold average ex: 90 = 90% CPU across the farm on average
 $farmMemoryThreshhold = 85                                                                  #Farm memory threshhold average ex: 90 = 90% memory used across the farm on average
@@ -71,6 +75,14 @@ $configContent = [PSCustomObject]@{
     businessCloseTime = $businessCloseTime
     businessDaysComment = "Specification of business days"
     businessDays = $businessDays
+    additionalScalingComment = "Specify to allow an additional scale window for more than a single machine scaling, for environments where mornings need more than single machine scaling"
+    additionalScaling = $additionalScaling                                                               
+    additionalScaleStartTimeComment = "The start time for additional machine scaling"
+    additionalScaleStartTime = $additionalScaleStartTime 
+    additionalScaleEndTimeComment = "The end time for additional machine scaling where scaling returns to single machines"                                                        
+    additionalScaleEndTime = $additionalScaleEndTime 
+    additionalMachineScaleValueComment = "Value for the amount of machines to scale each time scaling is required within this additional scale window"                                                         
+    additionalMachineScaleValue = $additionalMachineScaleValue                                                            
     outOfHoursMachinesComment = "How many machines should be powered on during the off hours"
     outOfHoursMachines = $outOfHoursMachines
     inHoursMachinesComment = "How many machines should be powered on during the day (InsideOfHours will take into account further machines)"
