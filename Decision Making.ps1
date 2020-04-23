@@ -105,7 +105,7 @@ $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
 
 #Setup a time object for comparison taking into account the input time for testing
 if ($inputTime) {
-    $inputDate = $([datetime]::ParseExact("$inputTime", "dd/MM/yyyy HH:mm", $null)).ToShortDateString()
+    $inputDate = get-date ([datetime]::ParseExact($inputTime, "dd/MM/yyyy HH:mm", $null)) -UFormat "%d/%m/%Y"
 
     $timesObj = [PSCustomObject]@{
         startTime = [datetime]::ParseExact($("$($inputDate) $($businessStartTime)"), "dd/MM/yyyy HH:mm", $null)
