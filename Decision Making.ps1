@@ -1335,7 +1335,11 @@ Function LogoffShutdown () {
 
     foreach ($machine in $machinesToPowerOff) {
         #Check for active sessions on each machine before shutting down
-        $sessions = $(brokerUserSessions -machineName $($machine.MachineName) | Where-Object {$_.SessionState -eq "Active"} | Select-Object *)
+        If ($respectDisconnected) {
+            $sessions = $(brokerUserSessions -machineName $($machine.MachineName) | Where-Object {($_.SessionState -eq "Active") -and ($_.SessionState -eq "Disconnected")} | Select-Object *)
+        } else {
+            $sessions = $(brokerUserSessions -machineName $($machine.MachineName) | Where-Object {$_.SessionState -eq "Active"} | Select-Object *)
+        }
         If ($null -eq $sessions) {
             WriteLog -Message "No active session found on $($machine.DNSName), performing shutdown" -Level Info
             #Shutdown the machines as there are no active sessions (this will include disconnected sessions)
@@ -1344,7 +1348,11 @@ Function LogoffShutdown () {
             WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode as its been drained and shutdown" -Level Info
             maintenance -machine $machine -maintenanceMode Off
         } else {
-            WriteLog -Message "Active session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
+            If ($respectDisconnected) { 
+                WriteLog -Message "Active and Disconnected session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
+            } else {
+                WriteLog -Message "Active session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
+            }
             #Check if machine is already in maintenance, otherwise set in maintenance mode 
             if (!((Get-BrokerMachine -Uid $machine.Uid).InMaintenanceMode))
             {
@@ -1355,7 +1363,7 @@ Function LogoffShutdown () {
                 WriteLog -Message "Machine $($machine.DNSName) already in maintenance mode" -Level Info
             }
             foreach ($session in $sessions) {
-                WriteLog -Message "Sessions active on $($machine.DNSName), $($session.BrokeringUsername) - session length and state $($(New-TimeSpan -Start $($session.EstablishmentTime)).Minutes) Minutes - State $($session.SessionState) " -Level Info
+                WriteLog -Message "Sessions on $($machine.DNSName), $($session.BrokeringUsername) - session length and state $($(New-TimeSpan -Start $($session.EstablishmentTime)).Minutes) Minutes - State $($session.SessionState) " -Level Info
             }
         }
     }
@@ -1673,8 +1681,12 @@ If ($(IsBusinessDay -date $($timesObj.timeNow))) {
             #Perform scaling calculations
             Scaling
         } ElseIf ($action.Task -eq "Shutdown") {
-            #Logoff all disconnected sessions
-            LogOffDisconnected
+            #Logoff all disconnected sessions if disconnected session should not be respected
+            If ($respectDisconnected) {
+                WriteLog -Message "Disconnected sessions are respected as if they are active sessions, this is specified if the config file - respectDisconnected" -Level Info
+            } else {
+                LogOffDisconnected
+            }
             #Shutdown machines sending a message to users to logoff
             If ($forceUserLogoff) {
                 forceLogoffShutdown -numberMachines $action.number
