@@ -1336,7 +1336,7 @@ Function LogoffShutdown () {
     foreach ($machine in $machinesToPowerOff) {
         #Check for active sessions on each machine before shutting down
         If ($respectDisconnected) {
-            $sessions = $(brokerUserSessions -machineName $($machine.MachineName) | Where-Object {($_.SessionState -eq "Active") -and ($_.SessionState -eq "Disconnected")} | Select-Object *)
+            $sessions = $(brokerUserSessions -machineName $($machine.MachineName) | Where-Object {($_.SessionState -eq "Active") -or ($_.SessionState -eq "Disconnected")} | Select-Object *)
         } else {
             $sessions = $(brokerUserSessions -machineName $($machine.MachineName) | Where-Object {$_.SessionState -eq "Active"} | Select-Object *)
         }
