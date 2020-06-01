@@ -1634,6 +1634,12 @@ try {
         $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
         $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and (-not $_.InMaintenanceMode)}
 
+        #Modify in hourse machines to take into account scaled machines or these will be shutdown prematurely
+        if  ($machinesScaled.count -gt 0) {
+            $inHoursMachines = $inHoursMachines +  ($machinesScaled.count)
+            WriteLog -Message "There have been $($machinesScaled.count) machines scaled on, these will be added to the in hours machine count." -Level Info
+        }
+
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
     Exit
