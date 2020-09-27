@@ -53,6 +53,7 @@ $configInfo = configurationImport
 $instanceName = $configInfo.instanceName
 $dateFormat = $configInfo.dateFormat
 $holidayDays = $configInfo.holidayDays
+$scaleOutsideOfHours = $configInfo.scaleOutsideOfHours
 $performanceThreadsMax = $configInfo.performanceThreadsMax
 $performanceIndividual = $configInfo.performanceIndividual
 $performanceOverall = $configInfo.performanceOverall
@@ -1748,8 +1749,8 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         } else {
             $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         }
-        
-        If ($action.Task -eq "Scaling" -and $performanceScaling) {
+        WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
+        If (($action.Task -eq "Scaling") -and ($performanceScaling) -and ($scaleOutsideOfHours)) {
             #Perform scaling calculations
             Scaling
         } ElseIf ($action.Task -eq "Shutdown") {
@@ -1799,10 +1800,11 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         WriteLog -Message "There has been an error calculating the date or time, review the logs" -Level Error
         SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error calculating the date or time, please review the attached logs" -attachment $logLocation -Level Error
     }
-} Else { #It is not a business day
+} Else { #It is not a business day or is a holiday
     $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count
-    WriteLog -Message "It is not a business day - performing machine analysis" -Level Info
-    If ($action.Task -eq "Scaling" -and $performanceScaling) {
+    WriteLog -Message "It is not a business day or is a holiday - performing machine analysis" -Level Info
+    WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
+    If (($action.Task -eq "Scaling") -and ($performanceScaling) -and ($scaleOutsideOfHours)) {
         #Perform scaling calculations
         Scaling
     } ElseIf ($action.Task -eq "Shutdown") {
