@@ -1,5 +1,6 @@
-$instanceName = "My Farm Dashboard"                                                        #Name of the PowerScale instance, used in the Dashboard title
+$instanceName = "My Farm Dashboard"                                                         #Name of the PowerScale instance, used in the Dashboard title
 $dateFormat = "ddMMyyyy"                                                                    #Date format for dashboard dates - examples: "ddMMyyyy", "MMddyyyy" - To support other geographics with different formats - see https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-date?view=powershell-7
+$holidayDays = "25/12/30","01/01/30"                                                        #List of dates classed as business holidays and should be considered Out-Of-Hours
 $performanceThreadsMax = "15"                                                               #Maximum number of symaltaneous threads used for performance monitoring
 $performanceIndividual = "Individual.xml"                                                   #Individual machine performance XML
 $performanceOverAll = "Overall.xml"                                                         #Overall machine performance XML
@@ -59,6 +60,8 @@ $configContent = [PSCustomObject]@{
     instanceNameComment = "Name of the PowerScale instance, used in the Dashboard title"
     dateFormat = $dateFormat
     dateFormatComment = "Date format for dashboard dates - examples: ddMMyyyy, MMddyyyy - To support other geographics with different formats - see https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-date?view=powershell-7"
+    holidayDays = $holidayDays
+    holidayDaysComment = "List of dates classed as business holidays and should be considered Out-Of-Hours"
     performanceThreadsMaxComment = "Maximum number of symaltaneous threads used for performance monitoring"
     performanceThreadsMax = $performanceThreadsMax
     performanceScriptLocationComment = "Performance gathering script location"

@@ -52,6 +52,7 @@ $configInfo = configurationImport
 #Set all variables for the script
 $instanceName = $configInfo.instanceName
 $dateFormat = $configInfo.dateFormat
+$holidayDays = $configInfo.holidayDays
 $performanceThreadsMax = $configInfo.performanceThreadsMax
 $performanceIndividual = $configInfo.performanceIndividual
 $performanceOverall = $configInfo.performanceOverall
@@ -106,6 +107,9 @@ $jsonFileTable = "times.json","machinesOn.json","machinesScaled.json","machinesM
 
 #Get current date in correct format
 $dateNow = $(Get-Date -Format dd/MM/yy).ToString()
+
+#Set holiday date if null to a date in the past
+If (($null -eq $holidayDays) -or ($holidayDays -eq "")) { $holidayDays = "01/01/1900" }
 
 #Setup a time object for comparison taking into account the input time for testing
 if ($inputTime) {
@@ -589,6 +593,23 @@ Function IsBusinessDay() {
    
     #See if the current day is defined as business day, returns true or false
     $null -ne ($businessDays | Where-Object { $($date.DayOfWeek).ToString().Substring(0, 3) -match $_ })  # returns $true
+}
+
+Function IsHolidayDay() {
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory = $true, HelpMessage = "The dates that need to be compared against the current date")]
+        [ValidateNotNullOrEmpty()]
+        [array]$holidayDates,
+
+        [Parameter(Mandatory = $true, HelpMessage = "The current date in the correct format to match against")]
+        [ValidateNotNullOrEmpty()]
+        [datetime]$currentDate
+    )
+    
+    #See if the current day is defined as business day, returns true or false
+    $null -ne ($holidayDates | Where-Object { $($currentDate.ToShortDateString()) -match $_ })  # returns $true
 }
 
 #Function to check if inside of business hours or outside to business hours
@@ -1712,9 +1733,13 @@ If (-not (Get-BrokerTag -Name "Scaled-On" -AdminAddress $citrixController)) {
 #Kick off Circular logging maintenance
 CircularLogging
 
-#Is it a business day?
-If ($(IsBusinessDay -date $($timesObj.timeNow))) {
-    #If it is a business day, then check if we are within working hours or not
+#Is it a business day and not a holiday
+If ($(IsHolidayDay -holidayDates $holidayDays -currentDate $timesObj.timeNow)) {
+    WriteLog -Message "Today is configured as a holiday in your configuration, the following dates are specified $holidayDays. This will ensure the script runs as if its not a business day" -Level Info
+}
+
+If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holidayDates $holidayDays -currentDate $timesObj.timeNow))))) {
+    #If it is a business day and not a holiday, then check if we are within working hours or not
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
