@@ -72,8 +72,8 @@ $additionalScaling = $configInfo.additionalScaling
 $additionalScaleStartTime = $configInfo.additionalScaleStartTime
 $additionalScaleEndTime = $configInfo.additionalScaleEndTime
 $additionalMachineScaleValue = $configInfo.additionalMachineScaleValue
-$additionalScaleDown = $configInfo.additionalScaleDown
-$additionalScaleDownFactor = $configInfo.additionalScaleDownFactor
+$restrcitiveScaleDown = $configInfo.restrcitiveScaleDown
+$restrcitiveScaleDownFactor = $configInfo.restrcitiveScaleDownFactor
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling
 $farmCPUThreshhold = $configInfo.farmCPUThreshhold
@@ -270,8 +270,8 @@ Function GenerateDashboard() {
     $HTML = $HTML.Replace('&lt;AdditionalScalingStart&gt;',"Start Time: $additionalScaleStartTime")
     $HTML = $HTML.Replace('&lt;AdditionalScalingEnd&gt;',"End Time: $additionalScaleEndTime")
     $HTML = $HTML.Replace('&lt;AdditionalScalingAmount&gt;',"Scale Amount: $additionalMachineScaleValue")
-    $HTML = $HTML.Replace('&lt;AdditionalScaleDown&gt;',"Restrictive Scaling: $additionalScaleDown")
-    $HTML = $HTML.Replace('&lt;AdditionalScaleDownFactor&gt;',"Restrictive Scale Value: $additionalScaleDownFactor")
+    $HTML = $HTML.Replace('&lt;restrcitiveScaleDown&gt;',"Restrictive Scaling: $restrcitiveScaleDown")
+    $HTML = $HTML.Replace('&lt;restrcitiveScaleDownFactor&gt;',"Restrictive Scale Value: $restrcitiveScaleDownFactor")
     $HTML = $HTML.Replace('&lt;MonitoringThreads&gt;',$performanceThreadsMax)
     $HTML = $HTML.Replace('&lt;DashboardRenew&gt;',$dashboardBackupTime)
     $HTML = $HTML.Replace('&lt;DashboardRetention&gt;',$dashboardRetention)
@@ -679,23 +679,23 @@ Function levelCheck() {
         #Return an object with the action required (Startup, Shutdown, Nothing and the amount of machines necessary to do it to)
         If (($currentMachines -gt $targetMachines) -and ($scalingFactor -eq 0)) {
             #If we've implemented the scaling down restriction to avoid the large machien shutdown scenario then check machine numbers accordingly
-            if ($additionalScaleDown) {
-                WriteLog -Message "Restrictive Scaling Down is enabled - The machines to be shutdown will be calculated based on the AdditionalScaleDownFactor value specified" -Level Info -Verbose
+            if ($restrcitiveScaleDown) {
+                WriteLog -Message "Restrictive Scaling is enabled - The machines to be shutdown will be calculated based on the restrcitiveScaleDownFactor value specified" -Level Info -Verbose
                 #If we're limiting the number machines we are shutting down, we need to specify how many we can realistically shutdown
-                if ($additionalScaleDownFactor -le ($currentMachines - $targetMachines)) {
-                    #The number of machines to shutdown is more than our scaling down factor, just shutdown the designated number.
+                if ($restrcitiveScaleDownFactor -le ($currentMachines - $targetMachines)) {
+                    #The number of machines to shutdown is more than our restrictive scaling down factor, just shutdown the designated number.
                     $action = [PSCustomObject]@{
                         Task = "Shutdown"
-                        Number = $($additionalScaleDownFactor)
+                        Number = $($restrcitiveScaleDownFactor)
                     }
-                    WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines, Scaling Down Factor is $additionalScaleDownFactor - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
+                    WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines, Scaling Down Factor is $restrcitiveScaleDownFactor - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
                 } else {
-                    #The number of machines to shutdown is less than the scaling down factor specified, shutdown whatever is remaining
+                    #The number of machines to shutdown is less than the restrictive scaling down factor specified, shutdown whatever is remaining
                     $action = [PSCustomObject]@{
                         Task = "Shutdown"
                         Number = $($currentMachines - $targetMachines)
                     }
-                    WriteLog -Message "There are less machines available to shutdown than the additional scaling down factor specified" -Level Info -Verbose
+                    WriteLog -Message "There are less machines available to shutdown than the restrictive scaling down factor specified" -Level Info -Verbose
                     WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
                 }
             } else {
