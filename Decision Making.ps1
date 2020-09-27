@@ -68,6 +68,8 @@ $additionalScaling = $configInfo.additionalScaling
 $additionalScaleStartTime = $configInfo.additionalScaleStartTime
 $additionalScaleEndTime = $configInfo.additionalScaleEndTime
 $additionalMachineScaleValue = $configInfo.additionalMachineScaleValue
+$additionalScaleDown = $configInfo.additionalScaleDown
+$additionalScaleDownFactor = $configInfo.additionalScaleDownFactor
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling
 $farmCPUThreshhold = $configInfo.farmCPUThreshhold
@@ -642,17 +644,40 @@ Function levelCheck() {
                     WriteLog -Message "Session Threshhold of $farmSessionThreshhold is lower than current farm average of $($overallPerformance.overallSession.Average), we need to spin up an additional machine" -Level Info -Verbose
                 }
         } else {
-            WriteLog -Message "There is an error in the config for the machine scaling variable as no case was recognised for sclaing - current variable = $machineScaling" -Level Error -Verbose
+            WriteLog -Message "There is an error in the config for the machine scaling variable as no case was recognised for scaling - current variable = $machineScaling" -Level Error -Verbose
         }
 
         #Check the supplied machines levels against what is required
         #Return an object with the action required (Startup, Shutdown, Nothing and the amount of machines necessary to do it to)
         If (($currentMachines -gt $targetMachines) -and ($scalingFactor -eq 0)) {
-            $action = [PSCustomObject]@{
-                Task = "Shutdown"
-                Number = $($currentMachines - $targetMachines)
+            #If we've implemented the scaling down restriction to avoid the large machien shutdown scenario then check machine numbers accordingly
+            if ($additionalScaleDown) {
+                WriteLog -Message "Restrictive Scaling Down is enabled - The machines to be shutdown will be calculated based on the AdditionalScaleDownFactor value specified" -Level Info -Verbose
+                #If we're limiting the number machines we are shutting down, we need to specify how many we can realistically shutdown
+                if ($additionalScaleDownFactor -le ($currentMachines - $targetMachines)) {
+                    #The number of machines to shutdown is more than our scaling down factor, just shutdown the designated number.
+                    $action = [PSCustomObject]@{
+                        Task = "Shutdown"
+                        Number = $($additionalScaleDownFactor)
+                    }
+                    WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines, Scaling Down Factor is $additionalScaleDownFactor - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
+                } else {
+                    #The number of machines to shutdown is less than the scaling down factor specified, shutdown whatever is remaining
+                    $action = [PSCustomObject]@{
+                        Task = "Shutdown"
+                        Number = $($currentMachines - $targetMachines)
+                    }
+                    WriteLog -Message "There are less machines available to shutdown than the additional scaling down factor specified" -Level Info -Verbose
+                    WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
+                }
+            } else {
+               #The additional scaling down factor is not enabled, power machines down as normal and aim to reach out target threshhold
+               $action = [PSCustomObject]@{
+                    Task = "Shutdown"
+                    Number = $($currentMachines - $targetMachines)
+                }
+                WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
             }
-            WriteLog -Message "The current number of powered on machines is $currentMachines and the target is $targetMachines - resulting action is to $($action.Task) $($action.Number) machines" -Level Info -Verbose
         } elseif ($currentMachines -lt $targetMachines) {
             $action = [PSCustomObject]@{
                 Task = "Startup"
@@ -1344,9 +1369,11 @@ Function LogoffShutdown () {
             WriteLog -Message "No active session found on $($machine.DNSName), performing shutdown" -Level Info
             #Shutdown the machines as there are no active sessions (this will include disconnected sessions)
             If (!$testingOnly) { brokerAction -machineName $($machine.MachineName) -machineAction Shutdown }
-            #Take the machine that has been shutdown out of maintenance mode
-            WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode as its been drained and shutdown" -Level Info
-            maintenance -machine $machine -maintenanceMode Off
+            #Take the machine that has been shutdown out of maintenance mode if it was in maintenance mode
+            if ((Get-BrokerMachine -Uid $machine.Uid).InMaintenanceMode) {
+                maintenance -machine $machine -maintenanceMode Off
+                WriteLog -Message "Taking $($machine.DNSName) out of maintenance mode as its been drained and shutdown" -Level Info
+            }
         } else {
             If ($respectDisconnected) { 
                 WriteLog -Message "Active and Disconnected session(s) found on $($machine.DNSName), this machine cannot be gracefully shutdown yet" -Level Info
@@ -1472,7 +1499,15 @@ Function Scaling () {
         
         If ($null -eq $availableMachineNumber) {
             WriteLog -Message "There are no machines available to power on or none in maintenance mode" -Level Info
-            WriteLog -Message "PowerScale did not find any machines that are powered off or in maintenance mode to be put into service, please add more machines into your catalog(s)" -Level Warn
+            if ($createMachinesIfNoneAvailable) {
+                ### This is where we need to build more machines
+                ### Error check the machine catalog and delivery group exists before attempting creation
+                ### Kick off the create task as a seperate job and do not wait for it, research this.
+                ### After creation these machines will be placed into service, powerscale will shutdown them down if no longer necessary
+                ### Should we mark them as scaled machines to be ignored?
+            } else {
+                WriteLog -Message "PowerScale did not find any machines that are powered off or in maintenance mode to be put into service, please add more machines into your catalog(s)" -Level Warn
+            }
         } else {
             #Loop through each machine found and power on
             #Track the machines turned on to exit the loop and not run through both sets of machines if not necessary
