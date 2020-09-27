@@ -261,6 +261,8 @@ Function GenerateDashboard() {
     $HTML = $HTML.Replace('&lt;AdditionalScalingStart&gt;',"Start Time: $additionalScaleStartTime")
     $HTML = $HTML.Replace('&lt;AdditionalScalingEnd&gt;',"End Time: $additionalScaleEndTime")
     $HTML = $HTML.Replace('&lt;AdditionalScalingAmount&gt;',"Scale Amount: $additionalMachineScaleValue")
+    $HTML = $HTML.Replace('&lt;AdditionalScaleDown&gt;',"Restrictive Scaling: $additionalScaleDown")
+    $HTML = $HTML.Replace('&lt;AdditionalScaleDownFactor&gt;',"Restrictive Scale Value: $additionalScaleDownFactor")
     $HTML = $HTML.Replace('&lt;MonitoringThreads&gt;',$performanceThreadsMax)
     $HTML = $HTML.Replace('&lt;DashboardRenew&gt;',$dashboardBackupTime)
     $HTML = $HTML.Replace('&lt;DashboardRetention&gt;',$dashboardRetention)
