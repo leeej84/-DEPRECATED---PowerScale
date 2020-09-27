@@ -50,6 +50,8 @@ function AuthDetailsImport () {
 $configInfo = configurationImport
 
 #Set all variables for the script
+$instanceName = $configInfo.instanceName
+$dateFormat = $configInfo.dateFormat
 $performanceThreadsMax = $configInfo.performanceThreadsMax
 $performanceIndividual = $configInfo.performanceIndividual
 $performanceOverall = $configInfo.performanceOverall
@@ -166,7 +168,7 @@ Function GenerateDashboard() {
 
         if (!$jsonMissing) {
             #Add a value into the array
-            $jsonData.'times.json'.json.labels += $(@($timesObj.timeNow.ToShortTimeString() + "-" + $timesObj.timeNow.ToShortDateString()))
+            $jsonData.'times.json'.json.labels += $(@($timesObj.timeNow.ToShortTimeString() + "-" + ((Get-Date ($timesObj.timeNow) -Format $dateFormat))))
             $jsonData.'machinesOn.json'.json.data += $machinesOnAndNotMaintenance.DNSName.count
             $jsonData.'machinesScaled.json'.json.data += $machinesScaled.DNSName.count
             $jsonData.'machinesMaintenance.json'.json.data += $machinesOnAndMaintenance.DNSName.count
@@ -193,7 +195,7 @@ Function GenerateDashboard() {
             New-Item -ItemType File -Path $jsonPath -Name $jsonFile
         }
 
-        $readData = [PSCustomObject]@{'times.json'=[PSCustomObject]@{json=[PSCustomObject]@{labels = @($timesObj.timeNow.ToShortTimeString() + "-" + $timesObj.timeNow.ToShortDateString())}}}
+        $readData = [PSCustomObject]@{'times.json'=[PSCustomObject]@{json=[PSCustomObject]@{labels = @($timesObj.timeNow.ToShortTimeString() + "-" + (Get-Date ($timesObj.timeNow) -Format $dateFormat))}}}
         $jsonData.Add($readData)
         $readData = [PSCustomObject]@{'machinesOn.json'=[PSCustomObject]@{json=[PSCustomObject]@{data = @($machinesOnAndNotMaintenance.DNSName.count)}}}
         $jsonData.Add($readData)
@@ -249,6 +251,8 @@ Function GenerateDashboard() {
         $HTML = $HTML.Replace('&lt;DetectionValue&gt;',"Machine Tags")
         $HTML = $HTML.Replace('&lt;DetectionEntries&gt;',$machineTags)
     }
+    #Replace the Title
+    $HTML = $HTML.Replace('Activity_Dashboard',$InstanceName)
     $HTML = $HTML.Replace('&lt;Controller&gt;',$citrixController)
     $HTML = $HTML.Replace('&lt;TestValue&gt;',$(if ($testingOnly) {"Test Mode"}else{"Live Mode"}))
     $HTML = $HTML.Replace('&lt;PefixValue&gt;',$machinePrefix)
@@ -346,11 +350,11 @@ Function CircularDashboard() {
             Get-ChildItem -Path "$jsonPath\*.json" | Remove-Item
 
             #Grab html file contents and make replacements before renaming
-            (Get-Content -Path "$scriptPath\Dashboard\Dashboard.html").Replace("script.js","script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js") | Set-Content -Path "$scriptPath\Dashboard\Dashboard.html"
+            (Get-Content -Path "$scriptPath\Dashboard\Dashboard.html").Replace("script.js","script-$((Get-Date ($timesObj.timeNow) -Format $dateFormat).Replace("/","-")).js") | Set-Content -Path "$scriptPath\Dashboard\Dashboard.html"
 
             #Create a backup of the current dashboard
-            Rename-Item -Path "$scriptPath\Dashboard\Dashboard.html" -NewName "Dashboard-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).html"
-            Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
+            Rename-Item -Path "$scriptPath\Dashboard\Dashboard.html" -NewName "Dashboard-$((Get-Date ($timesObj.timeNow) -Format $dateFormat).Replace("/","-")).html"
+            Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$((Get-Date ($timesObj.timeNow) -Format $dateFormat).Replace("/","-")).js"
         }
 
         #There are already enough dashboards, remove some of the old ones
@@ -388,11 +392,11 @@ Function CircularDashboard() {
             Get-ChildItem -Path "$jsonPath\*.json" | Remove-Item
 
             #Grab html file contents and make replacements before renaming
-            (Get-Content -Path "$scriptPath\Dashboard\Dashboard.html").Replace("script.js","script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js") | Set-Content -Path "$scriptPath\Dashboard\Dashboard.html"
+            (Get-Content -Path "$scriptPath\Dashboard\Dashboard.html").Replace("script.js","script-$((Get-Date ($timesObj.timeNow) -Format $dateFormat).Replace("/","-")).js") | Set-Content -Path "$scriptPath\Dashboard\Dashboard.html"
 
             #Create a backup of the current dashboard
-            Rename-Item -Path "$scriptPath\Dashboard\Dashboard.html" -NewName "Dashboard-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).html"
-            Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$($timesObj.timeNow.ToShortDateString().Replace("/","-")).js"
+            Rename-Item -Path "$scriptPath\Dashboard\Dashboard.html" -NewName "Dashboard-$((Get-Date ($timesObj.timeNow) -Format $dateFormat).Replace("/","-")).html"
+            Rename-Item -Path "$scriptPath\Dashboard\script.js" -NewName "script-$((Get-Date ($timesObj.timeNow) -Format $dateFormat).Replace("/","-")).js"
 
             WriteLog -Message "Completed Circular Dashboard Management" -Level Info
         }
