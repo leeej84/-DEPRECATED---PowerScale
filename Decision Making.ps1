@@ -86,6 +86,7 @@ $scriptRunInterval = New-TimeSpan -Minutes $configInfo.scriptRunInterval
 $LogNumberOfDays = $configInfo.LogNumberOfDays
 $logLocation = $configInfo.logLocation
 $forceUserLogoff = $configInfo.forceUserLogoff
+$respectDisconnected = $configInfo.respectDisconnected
 $userLogoffFirstInterval = $configInfo.userLogoffFirstInterval
 $userLogoffFirstMessage = $configInfo.userLogoffFirstMessage
 $userLogoffSecondInterval = $configInfo.userLogoffSecondInterval
