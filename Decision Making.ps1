@@ -1,4 +1,4 @@
-﻿##################################################################################################
+##################################################################################################
 #Main Logic script
 #Copyright:         Free to use, please leave this header intact
 #Author:            Leee Jeffries
@@ -135,6 +135,9 @@ if ($inputTime) {
         timeNow = $(Get-Date)
     }
 }
+
+#Predefine a default exit code
+$global:exitCode = 0
 
 #Load Citrix Snap-ins
 Add-PSSnapin Citrix*
@@ -455,21 +458,33 @@ Function WriteLog() {
         # Format Date for our Log File
         $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-         # Write message to error, warning, or verbose pipeline and specify $LevelText
+        # variable for the eventual new exit code
+        $newExitCode = 0
+
+        # Write message to error, warning, or verbose pipeline and specify $LevelText
         switch ($Level) {
             'Error' {
+                $newExitCode = 2
                 Write-Error $Message
                 $LevelText = 'ERROR:'
                 }
             'Warn' {
+                $newExitCode = 1
                 Write-Warning $Message
                 $LevelText = 'WARNING:'
                 }
             'Info' {
+                $newExitCode = 0
                 Write-Verbose $Message
                 $LevelText = 'INFO:'
                 }
             }
+
+        # higher the exit code variable when the new exit code is greater than the current exit code
+        if($newExitCode -gt $global:exitCode)
+        {
+            $global:exitCode = $newExitCode
+        }
 
         # Write log entry to $Path
         "$FormattedDate $LevelText $Message" | Out-File -FilePath $logLocation -Append
@@ -897,7 +912,7 @@ If (-not ([String]::IsNullOrEmpty($authServiceAccount))) {
     } else {
         "authentication Account invalid"
         WriteLog -Message "The authentication account provided is not valid for use as it is in an incorrect format, script execution will now stop" -Level Error -Verbose
-        Exit
+        Exit $exitCode
     }
 }
 
@@ -1706,7 +1721,7 @@ try {
 
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
-    Exit
+    Exit $exitCode
 }
 if ($performanceScaling) {
     #Run the performance monitoring script to create XML files
@@ -1846,6 +1861,7 @@ UpdateDashboardNavigation
 WriteLog -Message "#######PowerScale script finishing#######" -Level Info -NoClobber
 WriteLog -Message "-" -Level Info -NoClobber
 
-
+# exit the script with the determined exit code
+exit $exitCode
 
 
