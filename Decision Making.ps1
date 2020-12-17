@@ -970,7 +970,7 @@ ForEach ($computer in $machines) {
 
             #Get the Thread ID of the script
             $ThreadID = [appdomain]::GetCurrentThreadId()
-            Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
+            Write-Verbose "ThreadID: Beginning $ThreadID" -Verbose
 
             #Create the script that will run
             [void]$PowerShell.AddScript({
@@ -984,7 +984,7 @@ ForEach ($computer in $machines) {
                 Add-PSSnapin Citrix*
 
                 $ThreadID = [appdomain]::GetCurrentThreadId()
-                Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
+                Write-Verbose "ThreadID: Beginning $ThreadID" -Verbose
                 $cimSession = New-CimSession -ComputerName $computer -Credential $creds
 
                 [pscustomobject]@{
@@ -1053,7 +1053,7 @@ ForEach ($computer in $machines) {
 
             #Get the Thread ID of the script
             $ThreadID = [appdomain]::GetCurrentThreadId()
-            Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
+            Write-Verbose "ThreadID: Beginning $ThreadID" -Verbose
 
             #Create the script that will run
             [void]$PowerShell.AddScript({
@@ -1067,7 +1067,7 @@ ForEach ($computer in $machines) {
                 Add-PSSnapin Citrix*
 
                 $ThreadID = [appdomain]::GetCurrentThreadId()
-                Write-Verbose “ThreadID: Beginning $ThreadID” -Verbose
+                Write-Verbose "ThreadID: Beginning $ThreadID" -Verbose
                 $cimSession = New-CimSession -ComputerName $computer
 
                 [pscustomobject]@{
@@ -1119,8 +1119,8 @@ ForEach ($computer in $machines) {
     }
 }
     #Verify completed - Echo out a final status after all jobs have executed
-    “Available Runspaces in RunspacePool: {0}” -f $RunspacePool.GetAvailableRunspaces()
-    “Remaining Jobs: {0}” -f @($jobs | Where-Object {$_.handle.iscompleted -ne ‘Completed’}).Count
+    "Available Runspaces in RunspacePool: {0}" -f $RunspacePool.GetAvailableRunspaces()
+    "Remaining Jobs: {0}" -f @($jobs | Where-Object {$_.handle.iscompleted -ne 'Completed'}).Count
 
     #Check if we have jobs to process
     if ($jobs) {
