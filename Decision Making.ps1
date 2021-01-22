@@ -74,6 +74,7 @@ $additionalScaleEndTime = $configInfo.additionalScaleEndTime
 $additionalMachineScaleValue = $configInfo.additionalMachineScaleValue
 $restrcitiveScaleDown = $configInfo.restrcitiveScaleDown
 $restrcitiveScaleDownFactor = $configInfo.restrcitiveScaleDownFactor
+$persistScaled = $configInfo.persistScaled
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling
 $farmCPUThreshhold = $configInfo.farmCPUThreshhold
@@ -1713,10 +1714,13 @@ try {
         $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
         $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and (-not $_.InMaintenanceMode)}
 
-        #Modify in hourse machines to take into account scaled machines or these will be shutdown prematurely
-        if  ($machinesScaled.count -gt 0) {
-            $inHoursMachines = $inHoursMachines +  ($machinesScaled.count)
+        #Modify in hours machines to take into account scaled machines or these will be shutdown prematurely
+        #22.01.21 - Added additional parameter of persist scaled, should be option to leave machines scaled on or not
+        if  (($machinesScaled.count -gt 0) -and $persistScaled) {
+            $inHoursMachines = $inHoursMachines + ($machinesScaled.count)
             WriteLog -Message "There have been $($machinesScaled.count) machines scaled on, these will be added to the in hours machine count." -Level Info
+        } else {
+            WriteLog -Message "There are $($machinesScaled.count) scaled on machine, these will be shutdown as soon as they are empty of users in business hours." -Level Info
         }
 
 } catch {
@@ -1759,7 +1763,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
     #If it is a business day and not a holiday, then check if we are within working hours or not
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
-        WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
+        WriteLog -Message "It is caurrently outside working hours - performing machine anlysis" -Level Info
         If ((($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count) -gt $outOfHoursMachines) -and ($machinesOnAndNotMaintenance.DNSName.count -eq $outOfHoursMachines)) {
             $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count)
         } else {
