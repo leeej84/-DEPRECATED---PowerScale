@@ -1763,7 +1763,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
     #If it is a business day and not a holiday, then check if we are within working hours or not
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
-        WriteLog -Message "It is caurrently outside working hours - performing machine anlysis" -Level Info
+        WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
         If ((($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count) -gt $outOfHoursMachines) -and ($machinesOnAndNotMaintenance.DNSName.count -eq $outOfHoursMachines)) {
             $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count)
         } else {
