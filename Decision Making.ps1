@@ -1716,11 +1716,11 @@ try {
 
         #Modify in hours machines to take into account scaled machines or these will be shutdown prematurely
         #22.01.21 - Added additional parameter of persist scaled, should be option to leave machines scaled on or not
-        if  (($machinesScaled.count -gt 0) -and $persistScaled) {
-            $inHoursMachines = $inHoursMachines + ($machinesScaled.count)
-            WriteLog -Message "There have been $($machinesScaled.count) machines scaled on, these will be added to the in hours machine count." -Level Info
+        if  (($($machinesScaled.MachineName.count) -gt 0) -and $persistScaled) {
+            $inHoursMachines = $inHoursMachines + $($machinesScaled.MachineName.count)
+            WriteLog -Message "There have been $($machinesScaled.MachineName.count) machines scaled on, these will be added to the in hours machine count." -Level Info
         } else {
-            WriteLog -Message "There are $($machinesScaled.count) scaled on machine, these will be shutdown as soon as they are empty of users in business hours." -Level Info
+            WriteLog -Message "There are $($machinesScaled.MachineName.count) scaled on machines, these will be shutdown as soon as they are empty of users in business hours." -Level Info
         }
 
 } catch {
