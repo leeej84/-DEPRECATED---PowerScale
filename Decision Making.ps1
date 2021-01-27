@@ -1764,6 +1764,15 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
+
+        #Remove all scaling tags now we are outside of working hours
+        foreach ($machine in $machinesScaled) {
+            if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
+                WriteLog -Message "We're outside of working hours - removing scaling tag from $($machine.MachineName)" -Level Info
+                Remove-BrokerTag "Scaled-On" -Machine $machine
+            }
+        }
+
         If ((($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count) -gt $outOfHoursMachines) -and ($machinesOnAndNotMaintenance.DNSName.count -eq $outOfHoursMachines)) {
             $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count)
         } else {
@@ -1793,13 +1802,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             Startup -numberMachines $action.Number
         }
         if ($($action.Number) -eq 0) {
-        #Remove the scaling tag if one exists
-            foreach ($machine in $machinesScaled) {
-                if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
-                    WriteLog -Message "We're out of hours with the correct number of machines - removing scaling tag from $($machine.MachineName)" -Level Info
-                    Remove-BrokerTag "Scaled-On" -Machine $machine
-                }
-            }
+            WriteLog -Message "We're out ooutside of working hours with the correct number of machines - nothing to do." -Level Info
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
