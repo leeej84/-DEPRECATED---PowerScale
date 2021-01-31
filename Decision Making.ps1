@@ -423,12 +423,11 @@ Function WriteLog() {
     Param
     (
         [Parameter(Mandatory=$true, HelpMessage = "The error message text to be placed into the log.")]
-        [ValidateNotNullOrEmpty()]
         [Alias("LogContent")]
         [string]$Message,
 
          [Parameter(Mandatory=$false, HelpMessage = "The error level of the event.")]
-        [ValidateSet("Error","Warn","Info")]
+        [ValidateSet("Error","Warn","Info","Debug")]
         [string]$Level="Info",
 
         [Parameter(Mandatory=$false, HelpMessage = "Specify to not overwrite the previous log file.")]
@@ -478,6 +477,10 @@ Function WriteLog() {
                 $newExitCode = 0
                 Write-Verbose $Message
                 $LevelText = 'INFO:'
+                }
+            'Debug' {
+                $newExitCode = 0
+                $LevelText = 'DEBUG:'
                 }
             }
 
@@ -663,8 +666,17 @@ Function levelCheck() {
 
         [Parameter(Mandatory=$true, HelpMessage = "Number of machines to scale up or down to.")]
         [ValidateNotNullOrEmpty()]
-        [int]$targetMachines
+        [int]$targetMachines,
+
+        [Parameter(Mandatory=$true, HelpMessage = "Write out debug information for the logs.")]
+        [ValidateNotNullOrEmpty()]
+        [boolean]$debugLog
     )
+
+        If ($debugLog) {
+            WriteLog -Message "Function: LevelCheck() Current Machines Turned On - $currentMachines" -Level Debug
+            WriteLog -Message "Function: LevelCheck() Target Machines - $targetMachines" -Level Debug
+        }
 
         $scalingFactor = 0
         #Perform some calculation for performance scaling
@@ -1510,6 +1522,7 @@ Function Scaling () {
         maintenanceMachines = $machinesOnAndMaintenance
         poweredOffMachines = $machinesPoweredOff
     }
+
     #Track the available number of machines with maintenance and switched off ones
     $availableMachineNumber = (($machineObj.maintenanceMachines.MachineName.count) + ($machineObj.poweredOffMachines.MachineName.count))
 
@@ -1714,6 +1727,40 @@ try {
         $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
         $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")}
 
+        If ($debugLog) {            
+            if ($null -ne $allMachines) {
+                WriteLog -Message "Main Script - All machines:" -Level Info -Verbose
+                foreach ($machine in $allMachines) {
+                    WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
+                }
+                $allMachines | Export-Clixml -Path "$scriptPath\debug-allMachines.xml"
+            }
+
+            if ($null -ne $machinesOnAndMaintenance) {
+                WriteLog -Message "Main Script - All machinesOnAndMaintenance:" -Level Info -Verbose
+                foreach ($machine in $machinesOnAndMaintenance) {
+                    WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
+                }
+                $machinesOnAndMaintenance | Export-Clixml -Path "$scriptPath\debug-machinesOnAndMaintenance.xml"
+            }
+
+            if ($null -ne $machinesOnAndNotMaintenance) {
+                WriteLog -Message "Main Script - All machinesOnAndNotMaintenance:" -Level Info -Verbose
+                foreach ($machine in $machinesOnAndNotMaintenance) {
+                    WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
+                }
+                $machinesOnAndNotMaintenance | Export-Clixml -Path "$scriptPath\debug-machinesOnAndNotMaintenance.xml"
+            }
+            
+            if ($null -ne $machinesScaled) {
+                WriteLog -Message "Main Script - All machinesScaled:" -Level Info -Verbose
+                foreach ($machine in $machinesScaled) {
+                    WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
+                }
+                $machinesScaled | Export-Clixml -Path "$scriptPath\debug-machinesScaled.xml"
+            }
+        }
+
         #Modify in hours machines to take into account scaled machines or these will be shutdown prematurely
         #22.01.21 - Added additional parameter of persist scaled, should be option to leave machines scaled on or not
         if  (($($machinesScaled.MachineName.count) -gt 0) -and $persistScaled) {
@@ -1773,10 +1820,10 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             }
         }
 
-        If ((($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count) -gt $outOfHoursMachines) -and ($machinesOnAndNotMaintenance.DNSName.count -eq $outOfHoursMachines)) {
-            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count)
+        If ((($machinesOnAndNotMaintenance.MachineName.count + $machinesOnAndMaintenance.MachineName.count) -gt $outOfHoursMachines) -and ($machinesOnAndNotMaintenance.MachineName.count -eq $outOfHoursMachines)) {
+            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.MachineName.count + $machinesOnAndMaintenance.MachineName.count) -debugLog $debugLog
         } else {
-            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
+            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count -debugLog $debugLog
         }
         WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
         If (($action.Task -eq "Scaling") -and ($performanceScaling) -and ($scaleOutsideOfHours)) {
@@ -1806,7 +1853,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
-        $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndMaintenance.RegistrationState.Count
+        $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count -debugLog $debugLog
         WriteLog -Message "It is currently inside working hours - performing machine analysis" -Level Info
         If ($action.Task -eq "Scaling" -and $performanceScaling) {
             #Perform scaling calculations
@@ -1824,7 +1871,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error calculating the date or time, please review the attached logs" -attachment $logLocation -Level Error
     }
 } Else { #It is not a business day or is a holiday
-    $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count
+    $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count -debugLog $debugLog
     WriteLog -Message "It is not a business day or is a holiday - performing machine analysis" -Level Info
     WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
     If (($action.Task -eq "Scaling") -and ($performanceScaling) -and ($scaleOutsideOfHours)) {

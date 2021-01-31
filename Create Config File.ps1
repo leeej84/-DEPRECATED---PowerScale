@@ -48,6 +48,7 @@ $smtpToAddress = ""                                                             
 $smtpFromAddress = ""                                                                       #Email address mails will come from
 $smtpSubject = "PowerScale"                                                                 #Mail Subject (will be appended with Error if error
 $testingOnly = $true                                                                        #Debugging value, will only write out to the log
+$debugLog = $false                                                                          #Separate debug information will be entered into the log file to supply calculation values
 $exclusionTag = "excluded"                                                                  #Tag in Studio to ensure a machine is discounted from calculations
 $authServiceAccount = ""                                                                    #Authentication Service Account Name - must include UPN or domain\username
 $authServicePassword = ""                                                                   #Authentication Service Account Password - leave empty if not required (!!!!Remove once this script is run!!!!)
@@ -164,6 +165,8 @@ $configContent = [PSCustomObject]@{
     authServiceAccountComment = "Authentication Service Account Name"
     testingOnlyComment = "Debugging value, will only write out to the log "
     testingOnly = $testingOnly
+    debugLogComment = "Verbose debug logging for troubleshooting complex logic issues"
+    debugLog = $debugLog
 }
 
 #Encrypt authentication user credentials if authPassword is populated
