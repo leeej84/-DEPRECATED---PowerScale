@@ -1193,7 +1193,7 @@ Function forceLogoffShutdown () {
 
     WriteLog -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
     #Check to see if we have machines with maintenance mode on first, if we do; we'll work with those first to leave live users alone
-    If ($($machinesOnAndMaintenance.MachineName.Count) -ge $($machinesOnAndNotMaintenance.MachineName.Count)) {
+    If ($($machinesOnAndMaintenance.MachineName.Count) -gt 0) {
         WriteLog -Message "There are $($machinesOnAndMaintenance.MachineName.Count) machines on and in maintenance mode, we'll work with these first out of hours to leave live user machines alone." -Level Info
         $machinesToPowerOff = $machinesOnAndMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
     } else {
