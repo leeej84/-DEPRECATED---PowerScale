@@ -1729,7 +1729,7 @@ try {
 
         If ($debugLog) {            
             if ($null -ne $allMachines) {
-                WriteLog -Message "Main Script - All machines:" -Level Info -Verbose
+                WriteLog -Message "Main Script - All machines:" -Level Debug
                 foreach ($machine in $allMachines) {
                     WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
                 }
@@ -1737,7 +1737,7 @@ try {
             }
 
             if ($null -ne $machinesOnAndMaintenance) {
-                WriteLog -Message "Main Script - All machinesOnAndMaintenance:" -Level Info -Verbose
+                WriteLog -Message "Main Script - All machinesOnAndMaintenance:" -Level Debug
                 foreach ($machine in $machinesOnAndMaintenance) {
                     WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
                 }
@@ -1745,7 +1745,7 @@ try {
             }
 
             if ($null -ne $machinesOnAndNotMaintenance) {
-                WriteLog -Message "Main Script - All machinesOnAndNotMaintenance:" -Level Info -Verbose
+                WriteLog -Message "Main Script - All machinesOnAndNotMaintenance:" -Level Debug
                 foreach ($machine in $machinesOnAndNotMaintenance) {
                     WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
                 }
@@ -1753,7 +1753,7 @@ try {
             }
             
             if ($null -ne $machinesScaled) {
-                WriteLog -Message "Main Script - All machinesScaled:" -Level Info -Verbose
+                WriteLog -Message "Main Script - All machinesScaled:" -Level Debug
                 foreach ($machine in $machinesScaled) {
                     WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
                 }
