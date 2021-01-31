@@ -1192,7 +1192,14 @@ Function forceLogoffShutdown () {
     )
 
     WriteLog -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
-    $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
+    #Check to see if we have machines with maintenance mode on first, if we do; we'll work with those first to leave live users alone
+    If ($($machinesOnAndMaintenance.MachineName.Count) -ge $($machinesOnAndNotMaintenance.MachineName.Count)) {
+        WriteLog -Message "There are $($machinesOnAndMaintenance.MachineName.Count) machines on and in maintenance mode, we'll work with these first out of hours to leave live user machines alone." -Level Info
+        $machinesToPowerOff = $machinesOnAndMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
+    } else {
+        WriteLog -Message "There are $($machinesOnAndNotMaintenance.MachineName.Count) machines on and available, users will be logged off of these servers." -Level Info
+        $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
+    }
     #For everymachine powered on up to the correct number, switch the poweroff
     foreach ($machine in $machinesToPowerOff) {
         #Check if machine is already in maintenance, otherwise set in maintenance mode
@@ -1812,11 +1819,14 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
 
-        #Remove all scaling tags now we are outside of working hours
+        #Remove all scaling tags now we are outside of working hours and remove machines from maintenance to make sure we maintain availability
         foreach ($machine in $machinesScaled) {
             if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
                 WriteLog -Message "We're outside of working hours - removing scaling tag from $($machine.MachineName)" -Level Info
                 Remove-BrokerTag "Scaled-On" -Machine $machine
+            }
+            if ($machine.InMaintenanceMode -eq $true) {
+                If (!$testingOnly) { maintenance -machine $machine -maintenanceMode Off }
             }
         }
 
@@ -1837,7 +1847,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
                 LogOffDisconnected
             }
             #Shutdown machines sending a message to users to logoff
-            If ($forceUserLogoff) {
+            If ($forceUserLogoff) {                
                 forceLogoffShutdown -numberMachines $action.number
             }
             #Shutdown all machines that currently have no sessions running
