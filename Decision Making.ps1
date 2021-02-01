@@ -670,7 +670,7 @@ Function levelCheck() {
 
         [Parameter(Mandatory=$true, HelpMessage = "Write out debug information for the logs.")]
         [ValidateNotNullOrEmpty()]
-        [boolean]$debugLog
+        $debugLog
     )
 
         If ($debugLog) {
