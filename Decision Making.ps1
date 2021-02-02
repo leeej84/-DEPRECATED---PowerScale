@@ -97,6 +97,7 @@ $smtpToAddress = $configInfo.smtpToAddress
 $smtpFromAddress = $configInfo.smtpFromAddress
 $smtpSubject = $configInfo.smtpSubject
 $testingOnly = $configInfo.testingOnly
+$debugLog = $configInfo.debugLog
 $exclusionTag = $configInfo.exclusionTag
 $authServiceAccount = $configInfo.authServiceAccount
 #Add a script run interval variable, must be filled in for comparison of dashboard backup
@@ -1830,10 +1831,10 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             }
         }
 
-        If ((($machinesOnAndNotMaintenance.MachineName.count + $machinesOnAndMaintenance.MachineName.count) -gt $outOfHoursMachines) -and ($machinesOnAndNotMaintenance.MachineName.count -eq $outOfHoursMachines)) {
-            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.MachineName.count + $machinesOnAndMaintenance.MachineName.count) -debugLog $debugLog
+        If ((($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -gt $outOfHoursMachines) -and ($($machinesOnAndNotMaintenance.MachineName.count) -eq $outOfHoursMachines)) {
+            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -debugLog $debugLog
         } else {
-            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count -debugLog $debugLog
+            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.MachineName.Count) -debugLog $debugLog
         }
         WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
         If (($action.Task -eq "Scaling") -and ($performanceScaling) -and ($scaleOutsideOfHours)) {
@@ -1859,7 +1860,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             Startup -numberMachines $action.Number
         }
         if ($($action.Number) -eq 0) {
-            WriteLog -Message "We're out ooutside of working hours with the correct number of machines - nothing to do." -Level Info
+            WriteLog -Message "We're out outside of working hours with the correct number of machines - nothing to do." -Level Info
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
