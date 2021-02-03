@@ -1874,6 +1874,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             Startup -numberMachines $action.Number
         } ElseIf ($action.Task -eq "Shutdown") {
             #Shutdown all machines that currently have no sessions running
+            WriteLog -Message "We are inside working houts and need to shutdown machine, user logoff will not be forced even if enabled" -Level Info
             LogoffShutdown -numberMachines $action.number
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
