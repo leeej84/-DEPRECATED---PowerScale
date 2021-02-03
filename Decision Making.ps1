@@ -1864,7 +1864,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
-        $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count -debugLog $debugLog
+        $action = levelCheck -targetMachines $InHoursMachines -currentMachines $($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -debugLog $debugLog
         WriteLog -Message "It is currently inside working hours - performing machine analysis" -Level Info
         If ($action.Task -eq "Scaling" -and $performanceScaling) {
             #Perform scaling calculations
