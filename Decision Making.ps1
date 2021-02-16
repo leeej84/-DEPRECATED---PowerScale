@@ -75,6 +75,7 @@ $additionalMachineScaleValue = $configInfo.additionalMachineScaleValue
 $restrcitiveScaleDown = $configInfo.restrcitiveScaleDown
 $restrcitiveScaleDownFactor = $configInfo.restrcitiveScaleDownFactor
 $persistScaled = $configInfo.persistScaled
+$delayShutdown = $configInfo.delayShutdown
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling
 $farmCPUThreshhold = $configInfo.farmCPUThreshhold
@@ -1376,13 +1377,13 @@ Function forceLogoffShutdown () {
                     sendMessage -firstMessageInterval $userLogoffFirstInterval -firstMessage $userLogoffFirstMessage -secondMessageInterval $userLogoffSecondInterval -secondMessage $userLogoffSecondMessage -sessions $logoffSessions
 
                     #Powerdown the VDA now all users have been messaged
-                    brokerAction -machineName $($machine.MachineName) -machineAction Shutdown
+                    brokerAction -machineName $($machine.MachineName) -machineAction Shutdown -delay $delayShutdown
                 } -ArgumentList $userLogoffFirstInterval, $userLogoffFirstMessage, $userLogoffSecondInterval, $userLogoffSecondMessage, $logoffSessions, $logLocation, $citrixController, $machine
             }
         } else {
             #Session count must be zero so shutdown the machine immediately
             WriteLog -Message "No sessions found on $($machine.DNSName), shutting down"
-            brokerAction -machineName $($machine.MachineName) -machineAction Shutdown
+            brokerAction -machineName $($machine.MachineName) -machineAction Shutdown -delay $delayShutdown
         }
     }
 
@@ -1433,7 +1434,7 @@ Function LogoffShutdown () {
         If ($null -eq $sessions) {
             WriteLog -Message "No active session found on $($machine.DNSName), performing shutdown" -Level Info
             #Shutdown the machines as there are no active sessions (this will include disconnected sessions)
-            If (!$testingOnly) { brokerAction -machineName $($machine.MachineName) -machineAction Shutdown }
+            If (!$testingOnly) { brokerAction -machineName $($machine.MachineName) -machineAction Shutdown -delay $delayShutdown}
             #Take the machine that has been shutdown out of maintenance mode if it was in maintenance mode
             if ((Get-BrokerMachine -Uid $machine.Uid).InMaintenanceMode) {
                 maintenance -machine $machine -maintenanceMode Off
