@@ -1392,30 +1392,13 @@ Function forceLogoffShutdown () {
                     sendMessage -firstMessageInterval $userLogoffFirstInterval -firstMessage $userLogoffFirstMessage -secondMessageInterval $userLogoffSecondInterval -secondMessage $userLogoffSecondMessage -sessions $logoffSessions
 
                     #Powerdown the VDA now all users have been messaged
-<<<<<<< HEAD
-                    brokerAction -machineName $($machine.MachineName) -machineAction Shutdown
-
-                    #Take machine out of maintenance mode
-                    WriteLog -Message "Setting $($machine.DNSName) maintenance mode Off"
-                    If (!$testingOnly) { maintenance -machine $machine -maintenanceMode Off }
-
-=======
                     brokerAction -machineName $($machine.MachineName) -machineAction Shutdown -delay $delayShutdown
->>>>>>> c64d583c318aa4358181efef787a9a83db646e56
                 } -ArgumentList $userLogoffFirstInterval, $userLogoffFirstMessage, $userLogoffSecondInterval, $userLogoffSecondMessage, $logoffSessions, $logLocation, $citrixController, $machine
             }
         } else {
             #Session count must be zero so shutdown the machine immediately
             WriteLog -Message "No sessions found on $($machine.DNSName), shutting down"
-<<<<<<< HEAD
-            brokerAction -machineName $($machine.MachineName) -machineAction Shutdown
-            
-            #Take machines out of maintenance mode
-            WriteLog -Message "Setting $($machine.DNSName) maintenance mode Off"
-            If (!$testingOnly) { maintenance -machine $machine -maintenanceMode Off }
-=======
             brokerAction -machineName $($machine.MachineName) -machineAction Shutdown -delay $delayShutdown
->>>>>>> c64d583c318aa4358181efef787a9a83db646e56
         }
     }
 
@@ -2061,11 +2044,9 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             Startup -numberMachines $action.Number
         } ElseIf ($action.Task -eq "Shutdown") {
             #Shutdown all machines that currently have no sessions running
-<<<<<<< HEAD
-            WriteLog -Message "We are inside working hours and need to shutdown machine, user logoff will not be forced even if enabled" -Level Info
-=======
+
             WriteLog -Message "We are inside working houts and need to shutdown machine, user logoff will not be forced even if enabled" -Level Info
->>>>>>> c64d583c318aa4358181efef787a9a83db646e56
+
             LogoffShutdown -numberMachines $action.number
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
