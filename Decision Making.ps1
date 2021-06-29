@@ -2074,7 +2074,23 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error calculating the date or time, please review the attached logs" -attachment $logLocation -Level Error
     }
 } Else { #It is not a business day or is a holiday
-    $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count -debugLog $debugLog
+    #Remove all scaling tags now we are outside of working hours and remove machines from maintenance to make sure we maintain availability
+    foreach ($machine in $machinesScaled) {
+        if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
+            WriteLog -Message "We're outside of working hours - removing scaling tag from $($machine.MachineName)" -Level Info
+            Remove-BrokerTag "Scaled-On" -Machine $machine
+        }
+        if ($machine.InMaintenanceMode -eq $true) {
+            If (!$testingOnly) { maintenance -machine $machine -maintenanceMode Off }
+        }
+    }
+
+    If ((($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -gt $outOfHoursMachines) -and ($($machinesOnAndNotMaintenance.MachineName.count) -eq $outOfHoursMachines)) {
+        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -debugLog $debugLog
+    } else {
+        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.MachineName.Count) -debugLog $debugLog
+    }
+    
     WriteLog -Message "It is not a business day or is a holiday - performing machine analysis" -Level Info
     WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
     If (($action.Task -eq "Scaling") -and ($performanceScaling) -and ($scaleOutsideOfHours)) {
