@@ -2070,7 +2070,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -debugLog $debugLog
     } else {
         $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.MachineName.Count) -debugLog $debugLog
-    }
+    } 
     
     WriteLog -Message "It is not a business day or is a holiday - performing machine analysis" -Level Info
     WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
