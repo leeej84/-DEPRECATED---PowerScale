@@ -1758,7 +1758,7 @@ Function ScaledMachines () {
                 }
             }
         } else {
-            WriteLog -Message "The scaling management file does not exist, there will be an issue managed scaled-on machines, manual user intervention is required." -Level Error
+            WriteLog -Message "The scaling management file does not exist, there will be an issue managing scaled-on machines, manual user intervention is required." -Level Error
         }
     }
 
@@ -1766,7 +1766,7 @@ Function ScaledMachines () {
     If ($scaleAction -eq "Remove") {
         If (!(Test-Path $scaleFile)) {
             #File does not exist, Write an error out
-            WriteLog -Message "The scaling management file does not exist, any scaled machines will be left on until the end of business hours." -Level Warn
+            WriteLog -Message "The scaling management file does not exist, any scaled machines will be left on until the end of business hours." -Level Info
         } else {
             #File exists already, read it and remove the item
             WriteLog -Message "The scaling management file already exists, it will be read in and $machineName will be removed." -Level Info
@@ -1777,9 +1777,9 @@ Function ScaledMachines () {
             $machineCheck = $managedScaled | Where-Object { $_.MachineName -eq $machineName }
             $machineCheck
             If ($null -eq $machineCheck) {
-                WriteLog -Message "Scaled machine $machineName has not been found in the managed scale file, it cannot be removed but this could highlight an issue." -Level Warn
+                WriteLog -Message "Scaled machine $machineName has not been found in the managed scale file, it cannot be removed but this could highlight an issue." -Level Info
             } else {
-                WriteLog -Message "Scaled machine $machineName has been found in the managed scale file, it will be removed." -Level Warn
+                WriteLog -Message "Scaled machine $machineName has been found in the managed scale file, it will be removed." -Level Info
                 $managedScaled.Remove($machineCheck)
                 $managedScaled | ConvertTo-Json | Out-File -FilePath $scaleFile       
             }
@@ -1790,7 +1790,7 @@ Function ScaledMachines () {
     If ($scaleAction -eq "Cleanse") {
         If (!(Test-Path $scaleFile)) {
             #File does not exist, Write an error out
-            WriteLog -Message "The scaling management file does not exist, machines cannot be cleansed from the file." -Level Warn
+            WriteLog -Message "The scaling management file does not exist, machines cannot be cleansed from the file." -Level Info
         } else {
             #File exists already, read it and cleanse any items
             WriteLog -Message "The scaling management file already exists, it will be read in and all machines will be time checked and removed if above the configured threshhold." -Level Info
@@ -1905,13 +1905,20 @@ try {
         #Cleansing the managed scaled machines list to ensure any stale items are removed and machines will be shutdown
         ScaledMachines -scaleAction Cleanse -timeNow $timesObj.timeNow
 
-        If ($debugLog) {            
+        If ($debugLog) {    
+            $logDate = Get-Date -Format "dd-MM-yyyy-HH-mm"
+            
+            #Create a debug folder
+            If (!(Test-Path -Path "$scriptPath\Debug")) {
+                New-Item -ItemType Directory -Path $scriptPath -Name Debug
+            }
+
             if ($null -ne $allMachines) {
                 WriteLog -Message "Main Script - All machines:" -Level Debug
                 foreach ($machine in $allMachines) {
                     WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
                 }
-                $allMachines | Export-Clixml -Path "$scriptPath\debug-allMachines.xml"
+                $allMachines | Export-Clixml -Path "$scriptPath\Debug\$logDate-debug-allMachines.xml"
             }
 
             if ($null -ne $machinesOnAndMaintenance) {
@@ -1919,7 +1926,7 @@ try {
                 foreach ($machine in $machinesOnAndMaintenance) {
                     WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
                 }
-                $machinesOnAndMaintenance | Export-Clixml -Path "$scriptPath\debug-machinesOnAndMaintenance.xml"
+                $machinesOnAndMaintenance | Export-Clixml -Path "$scriptPath\Debug\$logDate-debug-machinesOnAndMaintenance.xml"
             }
 
             if ($null -ne $machinesOnAndNotMaintenance) {
@@ -1927,7 +1934,7 @@ try {
                 foreach ($machine in $machinesOnAndNotMaintenance) {
                     WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
                 }
-                $machinesOnAndNotMaintenance | Export-Clixml -Path "$scriptPath\debug-machinesOnAndNotMaintenance.xml"
+                $machinesOnAndNotMaintenance | Export-Clixml -Path "$scriptPath\Debug\$logDate-debug-machinesOnAndNotMaintenance.xml"
             }
             
             if ($null -ne $machinesScaled) {
@@ -1935,7 +1942,7 @@ try {
                 foreach ($machine in $machinesScaled) {
                     WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
                 }
-                $machinesScaled | Export-Clixml -Path "$scriptPath\debug-machinesScaled.xml"
+                $machinesScaled | Export-Clixml -Path "$scriptPath\Debug\$logDate-debug-machinesScaled.xml"
             }
         }
 
@@ -1952,6 +1959,7 @@ try {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
     Exit $exitCode
 }
+
 if ($performanceScaling) {
     #Run the performance monitoring script to create XML files
     WriteLog -Message "Performance scaling is enabled - attempting performance metrics capture" -Level Info
@@ -1991,13 +1999,15 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
 
         #Remove all scaling tags now we are outside of working hours and remove machines from maintenance to make sure we maintain availability
-        foreach ($machine in $machinesScaled) {
-            if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
-                WriteLog -Message "We're outside of working hours - removing scaling tag from $($machine.MachineName)" -Level Info
-                Remove-BrokerTag "Scaled-On" -Machine $machine
-            }
-            if ($machine.InMaintenanceMode -eq $true) {
-                If (!$testingOnly) { maintenance -machine $machine -maintenanceMode Off }
+        If (($($machinesScaled.MachineName.count) -ne 0)) {
+            foreach ($machine in $machinesScaled) {
+                if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $machine.MachineName).uid).Name -contains "Scaled-On") {
+                    WriteLog -Message "We're outside of working hours - removing scaling tag from $($machine.MachineName)" -Level Info
+                    Remove-BrokerTag "Scaled-On" -Machine $machine
+                }
+                if ($machine.InMaintenanceMode -eq $true) {
+                    If (!$testingOnly) { maintenance -machine $machine -maintenanceMode Off }
+                }
             }
         }
 
