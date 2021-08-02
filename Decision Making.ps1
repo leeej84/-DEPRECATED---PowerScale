@@ -74,8 +74,6 @@ $additionalScaleEndTime = $configInfo.additionalScaleEndTime
 $additionalMachineScaleValue = $configInfo.additionalMachineScaleValue
 $restrcitiveScaleDown = $configInfo.restrcitiveScaleDown
 $restrcitiveScaleDownFactor = $configInfo.restrcitiveScaleDownFactor
-$persistScaled = $configInfo.persistScaled
-$delayShutdown = $configInfo.delayShutdown
 $inHoursMachines = $configInfo.inHoursMachines
 $machineScaling = $configInfo.machineScaling
 $farmCPUThreshhold = $configInfo.farmCPUThreshhold
@@ -98,7 +96,6 @@ $smtpToAddress = $configInfo.smtpToAddress
 $smtpFromAddress = $configInfo.smtpFromAddress
 $smtpSubject = $configInfo.smtpSubject
 $testingOnly = $configInfo.testingOnly
-$debugLog = $configInfo.debugLog
 $exclusionTag = $configInfo.exclusionTag
 $authServiceAccount = $configInfo.authServiceAccount
 #Add a script run interval variable, must be filled in for comparison of dashboard backup
@@ -138,9 +135,6 @@ if ($inputTime) {
         timeNow = $(Get-Date)
     }
 }
-
-#Predefine a default exit code
-$global:exitCode = 0
 
 #Load Citrix Snap-ins
 Add-PSSnapin Citrix*
@@ -425,11 +419,12 @@ Function WriteLog() {
     Param
     (
         [Parameter(Mandatory=$true, HelpMessage = "The error message text to be placed into the log.")]
+        [ValidateNotNullOrEmpty()]
         [Alias("LogContent")]
         [string]$Message,
 
          [Parameter(Mandatory=$false, HelpMessage = "The error level of the event.")]
-        [ValidateSet("Error","Warn","Info","Debug")]
+        [ValidateSet("Error","Warn","Info")]
         [string]$Level="Info",
 
         [Parameter(Mandatory=$false, HelpMessage = "Specify to not overwrite the previous log file.")]
@@ -460,37 +455,21 @@ Function WriteLog() {
         # Format Date for our Log File
         $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-        # variable for the eventual new exit code
-        $newExitCode = 0
-
-        # Write message to error, warning, or verbose pipeline and specify $LevelText
+         # Write message to error, warning, or verbose pipeline and specify $LevelText
         switch ($Level) {
             'Error' {
-                $newExitCode = 2
                 Write-Error $Message
                 $LevelText = 'ERROR:'
                 }
             'Warn' {
-                $newExitCode = 1
                 Write-Warning $Message
                 $LevelText = 'WARNING:'
                 }
             'Info' {
-                $newExitCode = 0
                 Write-Verbose $Message
                 $LevelText = 'INFO:'
                 }
-            'Debug' {
-                $newExitCode = 0
-                $LevelText = 'DEBUG:'
-                }
             }
-
-        # higher the exit code variable when the new exit code is greater than the current exit code
-        if($newExitCode -gt $global:exitCode)
-        {
-            $global:exitCode = $newExitCode
-        }
 
         # Write log entry to $Path
         "$FormattedDate $LevelText $Message" | Out-File -FilePath $logLocation -Append
@@ -668,17 +647,8 @@ Function levelCheck() {
 
         [Parameter(Mandatory=$true, HelpMessage = "Number of machines to scale up or down to.")]
         [ValidateNotNullOrEmpty()]
-        [int]$targetMachines,
-
-        [Parameter(Mandatory=$true, HelpMessage = "Write out debug information for the logs.")]
-        [ValidateNotNullOrEmpty()]
-        $debugLog
+        [int]$targetMachines
     )
-
-        If ($debugLog) {
-            WriteLog -Message "Function: LevelCheck() Current Machines Turned On - $currentMachines" -Level Debug
-            WriteLog -Message "Function: LevelCheck() Target Machines - $targetMachines" -Level Debug
-        }
 
         $scalingFactor = 0
         #Perform some calculation for performance scaling
@@ -927,7 +897,7 @@ If (-not ([String]::IsNullOrEmpty($authServiceAccount))) {
     } else {
         "authentication Account invalid"
         WriteLog -Message "The authentication account provided is not valid for use as it is in an incorrect format, script execution will now stop" -Level Error -Verbose
-        Exit $exitCode
+        Exit
     }
 }
 
@@ -1193,30 +1163,8 @@ Function forceLogoffShutdown () {
 
     )
 
-    $machinesToPowerOff = [System.Collections.ArrayList]::new()
-
     WriteLog -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
-    #Check to see if we have machines with maintenance mode on first, if we do; we'll work with those first to leave live users alone
-    If ($($machinesOnAndMaintenance.MachineName.Count) -gt 0) {
-        WriteLog -Message "There are $($machinesOnAndMaintenance.MachineName.Count) machines on and in maintenance mode, we'll work with these first out of hours to leave live user machines alone." -Level Info
-        $machinesToPowerOff.Add(($machinesOnAndMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)))
-    } else {
-        WriteLog -Message "There are $($machinesOnAndNotMaintenance.MachineName.Count) machines on and available, users will be logged off of these servers." -Level Info
-        $machinesToPowerOff.Add(($machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)))
-    }
-
-    #Check if the machine is a managed scaled machine, if it is; remove it from evaluation
-    foreach ($machine in $machinesToPowerOff) {
-        If ($machine.Tags -contains 'Scaled-On') {
-            If (!(ScaledMachines -machineName $machine.DNSName -scaleAction Check -timeNow $timesObj.timeNow)) {
-                $machinesToPowerOff | Select DNSName
-                WriteLog -Message "Discounting $($machine.DNSName) from the shutdown process as its scaled-on and within threshhold." -Level Info
-                $machinesToPowerOff.Remove($machine)
-                $machinesToPowerOff | Select DNSName
-            }
-        }
-    }
-
+    $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
     #For everymachine powered on up to the correct number, switch the poweroff
     foreach ($machine in $machinesToPowerOff) {
         #Check if machine is already in maintenance, otherwise set in maintenance mode
@@ -1392,26 +1340,33 @@ Function forceLogoffShutdown () {
                     sendMessage -firstMessageInterval $userLogoffFirstInterval -firstMessage $userLogoffFirstMessage -secondMessageInterval $userLogoffSecondInterval -secondMessage $userLogoffSecondMessage -sessions $logoffSessions
 
                     #Powerdown the VDA now all users have been messaged
-                    brokerAction -machineName $($machine.MachineName) -machineAction Shutdown -delay $delayShutdown
+                    brokerAction -machineName $($machine.MachineName) -machineAction Shutdown
                 } -ArgumentList $userLogoffFirstInterval, $userLogoffFirstMessage, $userLogoffSecondInterval, $userLogoffSecondMessage, $logoffSessions, $logLocation, $citrixController, $machine
             }
         } else {
             #Session count must be zero so shutdown the machine immediately
             WriteLog -Message "No sessions found on $($machine.DNSName), shutting down"
-            brokerAction -machineName $($machine.MachineName) -machineAction Shutdown -delay $delayShutdown
+            brokerAction -machineName $($machine.MachineName) -machineAction Shutdown
         }
     }
 
-    #Loop until all running jobs are finished and all users have been messaged
-    Do {
-        $runningJobs = Get-Job | Where-Object {$_.State -ne "Completed"}
-        $completedJobs = Get-Job |  Where-Object {$_.State -eq "Completed"}
-        ForEach ($job in $completedJobs) {
-            Receive-Job $job | Select-Object * -ExcludeProperty RunspaceId
-            Remove-Job $job                }
+#Loop until all running jobs are finished and all users have been messaged
+Do {
+    $runningJobs = Get-Job | Where-Object {$_.State -ne "Completed"}
+    $completedJobs = Get-Job |  Where-Object {$_.State -eq "Completed"}
+    ForEach ($job in $completedJobs) {
+        Receive-Job $job | Select-Object * -ExcludeProperty RunspaceId
+        Remove-Job $job                }
 
-        Start-Sleep -Seconds 10
-    } Until ($runningJobs.Count -eq 0)
+    Start-Sleep -Seconds 10
+} Until ($runningJobs.Count -eq 0)
+
+#Take all machines shutdown out of maintenance mode
+foreach ($machine in $machinesToPowerOff) {
+        #Take machines out of maintenance mode
+        WriteLog -Message "Setting $($machine.DNSName) maintenance mode Off"
+        If (!$testingOnly) { maintenance -machine $machine -maintenanceMode Off }
+    }
 }
 
 #Wait for user sessions for disconnect using idle disconnect timers and log them off
@@ -1425,29 +1380,11 @@ Function LogoffShutdown () {
 
     )
 
-    $machinesToPowerOff = [System.Collections.ArrayList]::new()
-
     WriteLog -Message "User logoff mode is not set to force, waiting for sessions to gracefully disconnect before powering machines down" -Level Info
     If ($machinesOnAndNotMaintenance.DNSName.Count -eq $outOfHoursMachines) {
-        foreach ($machine in (($machinesOnAndMaintenance | Sort-Object -Property DNSName))) {
-            $machinesToPowerOff.Add($machine)
-        }
+        $machinesToPowerOff = $machinesOnAndMaintenance | Sort-Object -Property DNSName
     } else {
-        foreach ($machine in (($machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)))) {
-            $machinesToPowerOff.Add($machine)
-        }
-    }
-    
-    #Check if the machine is a managed scaled machine, if it is; remove it from evaluation
-    foreach ($machine in $machinesToPowerOff) {
-        If ($machine.Tags -contains 'Scaled-On') {
-            ##Need to add a different variable here for machine selection to remove from
-            ##Cannot use current variable as an error occurs on enumeration because the object is edited within the loop
-            If (!(ScaledMachines -machineName $machine.DNSName -scaleAction Check -timeNow $timesObj.timeNow)) {
-                WriteLog -Message "Discounting $($machine.DNSName) from the shutdown process as its scaled-on and within threshhold." -Level Info
-                $machinesToPowerOff.Remove($machine) #Need to use a seperate array for the modification. If I modify what is in the loop there is an error.
-            }
-        }
+        $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines) 
     }
 
     foreach ($machine in $machinesToPowerOff) {
@@ -1460,7 +1397,7 @@ Function LogoffShutdown () {
         If ($null -eq $sessions) {
             WriteLog -Message "No active session found on $($machine.DNSName), performing shutdown" -Level Info
             #Shutdown the machines as there are no active sessions (this will include disconnected sessions)
-            If (!$testingOnly) { brokerAction -machineName $($machine.MachineName) -machineAction Shutdown -delay $delayShutdown}
+            If (!$testingOnly) { brokerAction -machineName $($machine.MachineName) -machineAction Shutdown }
             #Take the machine that has been shutdown out of maintenance mode if it was in maintenance mode
             if ((Get-BrokerMachine -Uid $machine.Uid).InMaintenanceMode) {
                 maintenance -machine $machine -maintenanceMode Off
@@ -1557,7 +1494,6 @@ Function Scaling () {
         maintenanceMachines = $machinesOnAndMaintenance
         poweredOffMachines = $machinesPoweredOff
     }
-
     #Track the available number of machines with maintenance and switched off ones
     $availableMachineNumber = (($machineObj.maintenanceMachines.MachineName.count) + ($machineObj.poweredOffMachines.MachineName.count))
 
@@ -1577,7 +1513,7 @@ Function Scaling () {
                 $scalingNumber = $additionalMachineScaleValue
             }
         } else {
-            WriteLog -Message "We are not in the time window for machine scaling, the number of machines to scale at each run will be set to the default of 1" -Level Info
+            WriteLog -Message "We are not in the time window for additional machine scaling, the number of machines to scale at each run will be set to the default of 1" -Level Info
             $scalingNumber = 1
         }       
     } else {
@@ -1619,12 +1555,10 @@ Function Scaling () {
                             WriteLog -Message "Taking $($machineToPowerOn.DNSName) out of maintenance mode, the CPU threshhold has been triggered at $($overallPerformance.overallCPU.Average)." -Level Info
                             If (!$testingOnly) { maintenance -machine $machineToPowerOn -maintenanceMode Off }
                             If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn -AdminAddress $citrixController }
-                            ScaledMachines -machineName $machineToPowerOn.DNSName -scaleAction Add -sessions $machineToPowerOn.SessionCount -timeNow $timesObj.timeNow -scaleDuration $scaleDuration                       
                         } else {                
                             WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the CPU threshhold has been triggered at $($overallPerformance.overallCPU.Average)." -Level Info
                             If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.machineName -machineAction TurnOn }
                             If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine ($machineToPowerOn.MachineName) -AdminAddress $citrixController }
-                            ScaledMachines -machineName $machineToPowerOn.DNSName -scaleAction Add -sessions $machineToPowerOn.SessionCount -timeNow $timesObj.timeNow -scaleDuration $scaleDuration
                         }
                     }
                     if (($overallPerformance.overallMemory.Average -gt $farmMemoryThreshhold) -and ($machineScaling -eq "Memory")) {
@@ -1632,12 +1566,10 @@ Function Scaling () {
                             WriteLog -Message "Taking $($machineToPowerOn.DNSName) out of maintenance mode, the Memory threshhold has been triggered at $($overallPerformance.overallMemory.Average)." -Level Info
                             If (!$testingOnly) { maintenance -machine $machineToPowerOn -maintenanceMode Off }
                             If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn -AdminAddress $citrixController }
-                            ScaledMachines -machineName $machineToPowerOn.DNSName -scaleAction Add -sessions $machineToPowerOn.SessionCount -timeNow $timesObj.timeNow -scaleDuration $scaleDuration
                         } else {                
                             WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Memory threshhold has been triggered at $($overallPerformance.overallMemory.Average)." -Level Info
                             If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.machineName -machineAction TurnOn }
                             If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn -AdminAddress $citrixController }
-                            ScaledMachines -machineName $machineToPowerOn.DNSName -scaleAction Add -sessions $machineToPowerOn.SessionCount -timeNow $timesObj.timeNow -scaleDuration $scaleDuration
                         }
                     }
                     if (($overallPerformance.overallIndex.Average -gt $farmIndexThreshhold) -and ($machineScaling -eq "Index")) {
@@ -1645,12 +1577,10 @@ Function Scaling () {
                             WriteLog -Message "Taking $($machineToPowerOn.DNSName) out of maintenance mode, the Index threshhold has been triggered at $($overallPerformance.overallIndex.Average)." -Level Info
                             If (!$testingOnly) { maintenance -machine $machineToPowerOn -maintenanceMode Off }
                             If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn -AdminAddress $citrixController }
-                            ScaledMachines -machineName $machineToPowerOn.DNSName -scaleAction Add -sessions $machineToPowerOn.SessionCount -timeNow $timesObj.timeNow -scaleDuration $scaleDuration
                         } else {
                             WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Index threshhold has been triggered at $($overallPerformance.overallIndex.Average)." -Level Info
                             If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.machineName -machineAction TurnOn }
                             If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn -AdminAddress $citrixController }
-                            ScaledMachines -machineName $machineToPowerOn.DNSName -scaleAction Add -sessions $machineToPowerOn.SessionCount -timeNow $timesObj.timeNow -scaleDuration $scaleDuration
                         }
                     }
                     if (($overallPerformance.overallSession.Average -gt $farmSessionThreshhold) -and ($machineScaling -eq "Session")) {
@@ -1658,12 +1588,10 @@ Function Scaling () {
                             WriteLog -Message "Taking $($machineToPowerOn.DNSName) out of maintenance mode, the Session threshhold has been triggered at $($overallPerformance.overallSession.Average)." -Level Info
                             If (!$testingOnly) { maintenance -machine $machineToPowerOn -maintenanceMode Off }
                             If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.machineName -AdminAddress $citrixController }
-                            ScaledMachines -machineName $machineToPowerOn.DNSName -scaleAction Add -sessions $machineToPowerOn.SessionCount -timeNow $timesObj.timeNow -scaleDuration $scaleDuration
                         } else {
                             WriteLog -Message "Issuing a power command to $($machineToPowerOn.DNSName) to power up, the Session threshhold has been triggered at $($overallPerformance.overallSession.Average)." -Level Info
                             If (!$testingOnly) { brokerAction -machineName $machineToPowerOn.machineName -machineAction TurnOn }
                             If (!$testingOnly) { Add-BrokerTag -Name "Scaled-On" -Machine $machineToPowerOn.machineName -AdminAddress $citrixController }
-                            ScaledMachines -machineName $machineToPowerOn.DNSName -scaleAction Add -sessions $machineToPowerOn.SessionCount -timeNow $timesObj.timeNow -scaleDuration $scaleDuration
                         }
                     }
                     #Increment the loop value
@@ -1683,130 +1611,6 @@ Function LogOffDisconnected () {
 #Log for script start
 WriteLog -Message "-" -Level Info -NoClobber
 WriteLog -Message "#######PowerScale script starting - Test mode value is $testingOnly#######" -Level Info
-
-#Function used to managed a flat json file of scaled machines
-#Add machines when scaling 
-#Remove machines when shutting down
-#Check machine scale time
-Function ScaledMachines () {
-    [CmdletBinding()]
-
-    param(
-        [Parameter(Mandatory=$true, HelpMessage="Action to be performed")]
-        [ValidateSet("Add","Remove","Check","Cleanse")]
-        [string]$scaleAction,
-
-        [Parameter(Mandatory=$false, HelpMessage="Machine name to be actioned")]
-        [string]$machineName,
-
-        [Parameter(Mandatory=$false, HelpMessage="Session live on server")]
-        [int]$sessions,
-
-        [Parameter(Mandatory=$false, HelpMessage="The time at the point of scaling on")]
-        [datetime]$timeNow,
-
-        [Parameter(Mandatory=$false, HelpMessage="Add a machine to track its scale time")]
-        [int]$scaleDuration
-    )
-
-    #Scale file with all machines that are being managed
-    $scaleFile = "$scriptPath\scaled.json"
-    $managedScaled = [System.Collections.ArrayList]::new()
-
-
-    #If the scale action is add we need to add a machine to the JSON
-    If ($scaleAction -eq "Add") {
-        If (!(Test-Path $scaleFile)) {
-            #File does not exist, create it
-            WriteLog -Message "The scaling management file does not exist, creating it as we need to add a machine to it." -Level Info      
-            [PSCustomObject]@{
-                MachineName = $machineName
-                TimeLimit = $timeNow.AddMinutes($scaleDuration)
-            } | ConvertTo-Json | Out-File -FilePath $scaleFile
-            WriteLog -Message "Added $machineName to scale management file" -Level Info
-        } else {
-            #File exists already, read it and add to it
-            WriteLog -Message "The scaling management file already exists, it will be read in and amended with the additional machine $machineName." -Level Info
-            $readData = Get-Content $scaleFile | ConvertFrom-Json
-            $writeData = [PSCustomObject]@{MachineName = $machineName; TimeLimit = $timeNow.AddMinutes($scaleDuration)}
-            foreach ($item in $readData) {
-                $managedScaled.Add($item)
-            }
-            $managedScaled.Add($writeData)
-            $managedScaled | ConvertTo-Json | Out-File -FilePath $scaleFile       
-        }
-    }
-
-    #If the scale action is check we need to check if the machine should be powered down
-    If ($scaleAction -eq "Check") {
-        #Check to see if the scale file exists as expected
-        If ((Test-Path $scaleFile)) {
-            WriteLog -Message "The scaling management file was found, reading the details." -Level Info
-            $managedScaled = Get-Content $scaleFile | ConvertFrom-Json
-            $machineCheck = $managedScaled | Where-Object { $_.MachineName -eq $machineName }
-            WriteLog -Message "Checking the time threshhold for $machineName" -Level Info
-            If ($null -eq $machineCheck) {
-                WriteLog -Message "Scaled machine $machineName has not been found in the managed scale file, it will be ignored forever if the machine is up and running." -Level Warn
-                Return $false
-            } else {
-                If ($timeNow -gt $machineCheck.TimeLimit) { 
-                    WriteLog -Message "Scaled machine $machineName has reached its threshhold of $($machineCheck.TimeLimit.DateTime), we'll check for active sessions before shutting down." -Level Info
-                    Return $true 
-                } else { 
-                    WriteLog -Message "Scaled machine $machineName is within its initial shutdown threshhold and will be left running until the threshhold is met." -Level Info
-                    $false 
-                }
-            }
-        } else {
-            WriteLog -Message "The scaling management file does not exist, there will be an issue managing scaled-on machines, manual user intervention is required." -Level Error
-        }
-    }
-
-    #If the scale action is remove we need to remove a machine to the JSON
-    If ($scaleAction -eq "Remove") {
-        If (!(Test-Path $scaleFile)) {
-            #File does not exist, Write an error out
-            WriteLog -Message "The scaling management file does not exist, any scaled machines will be left on until the end of business hours." -Level Info
-        } else {
-            #File exists already, read it and remove the item
-            WriteLog -Message "The scaling management file already exists, it will be read in and $machineName will be removed." -Level Info
-            $readData = Get-Content $scaleFile | ConvertFrom-Json
-            foreach ($item in $readData) {
-                $managedScaled.Add($item)
-            }
-            $machineCheck = $managedScaled | Where-Object { $_.MachineName -eq $machineName }
-            $machineCheck
-            If ($null -eq $machineCheck) {
-                WriteLog -Message "Scaled machine $machineName has not been found in the managed scale file, it cannot be removed but this could highlight an issue." -Level Info
-            } else {
-                WriteLog -Message "Scaled machine $machineName has been found in the managed scale file, it will be removed." -Level Info
-                $managedScaled.Remove($machineCheck)
-                $managedScaled | ConvertTo-Json | Out-File -FilePath $scaleFile       
-            }
-        }
-    }
-
-    #Cleanse the file from all entries that are no longer valid
-    If ($scaleAction -eq "Cleanse") {
-        If (!(Test-Path $scaleFile)) {
-            #File does not exist, Write an error out
-            WriteLog -Message "The scaling management file does not exist, machines cannot be cleansed from the file." -Level Info
-        } else {
-            #File exists already, read it and cleanse any items
-            WriteLog -Message "The scaling management file already exists, it will be read in and all machines will be time checked and removed if above the configured threshhold." -Level Info
-            $readData = Get-Content $scaleFile | ConvertFrom-Json
-            foreach ($item in $readData) {
-                #Check the time now against what is in the file
-                If ($item.TimeLimit -gt $timeNow) {
-                    #The timelimit in the file is greater than the time now so we keep it
-                    $managedScaled.Add($item)
-                }   
-                #Re-export the file         
-                $managedScaled | ConvertTo-Json | Out-File -FilePath $scaleFile       
-            }
-        }
-    }
-}
 
 #########################Reset All Variables and Get All Metrics###################################
 $allMachines = ""
@@ -1886,81 +1690,24 @@ try {
         }
 
         #Filter down the main objects into sub variables for scripting ease
-        $disconnectedSessions = [System.Collections.ArrayList]::new()
-        $activeSessions = [System.Collections.ArrayList]::new()
-        $machinesOnAndMaintenance = [System.Collections.ArrayList]::new()
-        $machinesOnAndNotMaintenance = [System.Collections.ArrayList]::new()
-        $machinesPoweredOff = [System.Collections.ArrayList]::new()
-        $machinesScaled = [System.Collections.ArrayList]::new()
-        $performanceMonitoringMachines = [System.Collections.ArrayList]::new()
-        
-        $disconnectedSessions.Add(($allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Disconnected"}))
-        $activeSessions.Add(($allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Active"}))
-        $machinesOnAndMaintenance.Add(($allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}))
-        $machinesOnAndNotMaintenance.Add(($allMachines | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}))
-        $machinesPoweredOff.Add(($allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}))
-        $machinesScaled.Add(($allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}))
-        $performanceMonitoringMachines.Add(($allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")}))
+        $disconnectedSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Disconnected"}
+        $activeSessions = $allUserSessions | Select-Object * | Where-Object {$_.SessionState -eq "Active"}
+        $machinesOnAndMaintenance = $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $true)}
+        $machinesOnAndNotMaintenance = $allMachines | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
+        $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
+        $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
+        $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and (-not $_.InMaintenanceMode)}
 
-        #Commented out - 14/07/21 - Issues with Mike Geubel
-        #Cleansing the managed scaled machines list to ensure any stale items are removed and machines will be shutdown
-        #ScaledMachines -scaleAction Cleanse -timeNow $timesObj.timeNow
-
-        If ($debugLog) {    
-            $logDate = Get-Date -Format "dd-MM-yyyy-HH-mm"
-            
-            #Create a debug folder
-            If (!(Test-Path -Path "$scriptPath\Debug")) {
-                New-Item -ItemType Directory -Path $scriptPath -Name Debug
-            }
-
-            if ($null -ne $allMachines) {
-                WriteLog -Message "Main Script - All machines:" -Level Debug
-                foreach ($machine in $allMachines) {
-                    WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
-                }
-                $allMachines | Export-Clixml -Path "$scriptPath\Debug\$logDate-debug-allMachines.xml"
-            }
-
-            if ($null -ne $machinesOnAndMaintenance) {
-                WriteLog -Message "Main Script - All machinesOnAndMaintenance:" -Level Debug
-                foreach ($machine in $machinesOnAndMaintenance) {
-                    WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
-                }
-                $machinesOnAndMaintenance | Export-Clixml -Path "$scriptPath\Debug\$logDate-debug-machinesOnAndMaintenance.xml"
-            }
-
-            if ($null -ne $machinesOnAndNotMaintenance) {
-                WriteLog -Message "Main Script - All machinesOnAndNotMaintenance:" -Level Debug
-                foreach ($machine in $machinesOnAndNotMaintenance) {
-                    WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
-                }
-                $machinesOnAndNotMaintenance | Export-Clixml -Path "$scriptPath\Debug\$logDate-debug-machinesOnAndNotMaintenance.xml"
-            }
-            
-            if ($null -ne $machinesScaled) {
-                WriteLog -Message "Main Script - All machinesScaled:" -Level Debug
-                foreach ($machine in $machinesScaled) {
-                    WriteLog -Message "Name: $($machine.DNSName) - Registration: $($machine.RegistrationState) - Maintenance: $($machine.InMaintenanceMode) - Power: $($machine.PowerState) - Tags: $($machine.Tags)" -Level Debug
-                }
-                $machinesScaled | Export-Clixml -Path "$scriptPath\Debug\$logDate-debug-machinesScaled.xml"
-            }
+        #Modify in hourse machines to take into account scaled machines or these will be shutdown prematurely
+        if  ($machinesScaled.count -gt 0) {
+            $inHoursMachines = $inHoursMachines +  ($machinesScaled.count)
+            WriteLog -Message "There have been $($machinesScaled.count) machines scaled on, these will be added to the in hours machine count." -Level Info
         }
-
-        #Modify in hours machines to take into account scaled machines or these will be shutdown prematurely
-        #22.01.21 - Added additional parameter of persist scaled, should be option to leave machines scaled on or not
-        #if  (($($machinesScaled.MachineName.count) -gt 0) -and $persistScaled) {
-        #    $inHoursMachines = $inHoursMachines + $($machinesScaled.MachineName.count)
-        #    WriteLog -Message "There have been $($machinesScaled.MachineName.count) machines scaled on, these will be added to the in hours machine count." -Level Info
-        #} else {
-        #    WriteLog -Message "There are $($machinesScaled.MachineName.count) scaled on machines, these will be shutdown as soon as they are empty of users in business hours." -Level Info
-        #}
 
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
-    Exit $exitCode
+    Exit
 }
-
 if ($performanceScaling) {
     #Run the performance monitoring script to create XML files
     WriteLog -Message "Performance scaling is enabled - attempting performance metrics capture" -Level Info
@@ -1971,6 +1718,7 @@ if ($performanceScaling) {
             $overallPerformance = performanceAnalysis -machines $($performanceMonitoringMachines.DNSName) -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
         }
     } catch {
+        $Error
         WriteLog -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and CMI. " -Level Error
         WriteLog -Message "There were $($performanceMonitoringMachines.RegistrationState.Count) machines On and in maintnance mode" -Level Error
         #Log out the latest error - does not mean performance measurement was unsuccessful on all machines        
@@ -1998,24 +1746,10 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
-
-        #Remove all scaling tags now we are outside of working hours and remove machines from maintenance to make sure we maintain availability
-        If (($($machinesScaled.MachineName.count) -ne 0)) {
-            foreach ($machine in $machinesScaled) {
-                if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $machine.MachineName).uid).Name -contains "Scaled-On") {
-                    WriteLog -Message "We're outside of working hours - removing scaling tag from $($machine.MachineName)" -Level Info
-                    Remove-BrokerTag "Scaled-On" -Machine $machine
-                }
-                if ($machine.InMaintenanceMode -eq $true) {
-                    If (!$testingOnly) { maintenance -machine $machine -maintenanceMode Off }
-                }
-            }
-        }
-
-        If ((($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -gt $outOfHoursMachines) -and ($($machinesOnAndNotMaintenance.MachineName.count) -eq $outOfHoursMachines)) {
-            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -debugLog $debugLog
+        If ((($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count) -gt $outOfHoursMachines) -and ($machinesOnAndNotMaintenance.DNSName.count -eq $outOfHoursMachines)) {
+            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count)
         } else {
-            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.MachineName.Count) -debugLog $debugLog
+            $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         }
         WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
         If (($action.Task -eq "Scaling") -and ($performanceScaling) -and ($scaleOutsideOfHours)) {
@@ -2029,7 +1763,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
                 LogOffDisconnected
             }
             #Shutdown machines sending a message to users to logoff
-            If ($forceUserLogoff) {                
+            If ($forceUserLogoff) {
                 forceLogoffShutdown -numberMachines $action.number
             }
             #Shutdown all machines that currently have no sessions running
@@ -2041,11 +1775,17 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             Startup -numberMachines $action.Number
         }
         if ($($action.Number) -eq 0) {
-            WriteLog -Message "We're out outside of working hours with the correct number of machines - nothing to do." -Level Info
+        #Remove the scaling tag if one exists
+            foreach ($machine in $machinesScaled) {
+                if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
+                    WriteLog -Message "We're out of hours with the correct number of machines - removing scaling tag from $($machine.MachineName)" -Level Info
+                    Remove-BrokerTag "Scaled-On" -Machine $machine
+                }
+            }
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
-        $action = levelCheck -targetMachines $InHoursMachines -currentMachines $($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -debugLog $debugLog
+        $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
         WriteLog -Message "It is currently inside working hours - performing machine analysis" -Level Info
         If ($action.Task -eq "Scaling" -and $performanceScaling) {
             #Perform scaling calculations
@@ -2055,9 +1795,6 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             Startup -numberMachines $action.Number
         } ElseIf ($action.Task -eq "Shutdown") {
             #Shutdown all machines that currently have no sessions running
-
-            WriteLog -Message "We are inside working houts and need to shutdown machine, user logoff will not be forced even if enabled" -Level Info
-
             LogoffShutdown -numberMachines $action.number
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "Error") {
@@ -2066,23 +1803,7 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
         SendEmail -smtpServer $smtpServer -toAddress $smtpToAddress -fromAddress $smtpFromAddress -subject $smtpSubject -Message "There has been an error calculating the date or time, please review the attached logs" -attachment $logLocation -Level Error
     }
 } Else { #It is not a business day or is a holiday
-    #Remove all scaling tags now we are outside of working hours and remove machines from maintenance to make sure we maintain availability
-    foreach ($machine in $machinesScaled) {
-        if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
-            WriteLog -Message "We're outside of working hours - removing scaling tag from $($machine.MachineName)" -Level Info
-            Remove-BrokerTag "Scaled-On" -Machine $machine
-        }
-        if ($machine.InMaintenanceMode -eq $true) {
-            If (!$testingOnly) { maintenance -machine $machine -maintenanceMode Off }
-        }
-    }
-
-    If ((($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -gt $outOfHoursMachines) -and ($($machinesOnAndNotMaintenance.MachineName.count) -eq $outOfHoursMachines)) {
-        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($($machinesOnAndNotMaintenance.MachineName.count) + $($machinesOnAndMaintenance.MachineName.count)) -debugLog $debugLog
-    } else {
-        $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.MachineName.Count) -debugLog $debugLog
-    } 
-    
+    $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count
     WriteLog -Message "It is not a business day or is a holiday - performing machine analysis" -Level Info
     WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
     If (($action.Task -eq "Scaling") -and ($performanceScaling) -and ($scaleOutsideOfHours)) {
@@ -2126,7 +1847,6 @@ UpdateDashboardNavigation
 WriteLog -Message "#######PowerScale script finishing#######" -Level Info -NoClobber
 WriteLog -Message "-" -Level Info -NoClobber
 
-# exit the script with the determined exit code
-exit $exitCode
+
 
 
