@@ -1902,8 +1902,9 @@ try {
         $machinesScaled.Add(($allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}))
         $performanceMonitoringMachines.Add(($allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")}))
 
+        #Commented out - 14/07/21 - Issues with Mike Geubel
         #Cleansing the managed scaled machines list to ensure any stale items are removed and machines will be shutdown
-        ScaledMachines -scaleAction Cleanse -timeNow $timesObj.timeNow
+        #ScaledMachines -scaleAction Cleanse -timeNow $timesObj.timeNow
 
         If ($debugLog) {    
             $logDate = Get-Date -Format "dd-MM-yyyy-HH-mm"
@@ -1948,12 +1949,12 @@ try {
 
         #Modify in hours machines to take into account scaled machines or these will be shutdown prematurely
         #22.01.21 - Added additional parameter of persist scaled, should be option to leave machines scaled on or not
-        if  (($($machinesScaled.MachineName.count) -gt 0) -and $persistScaled) {
-            $inHoursMachines = $inHoursMachines + $($machinesScaled.MachineName.count)
-            WriteLog -Message "There have been $($machinesScaled.MachineName.count) machines scaled on, these will be added to the in hours machine count." -Level Info
-        } else {
-            WriteLog -Message "There are $($machinesScaled.MachineName.count) scaled on machines, these will be shutdown as soon as they are empty of users in business hours." -Level Info
-        }
+        #if  (($($machinesScaled.MachineName.count) -gt 0) -and $persistScaled) {
+        #    $inHoursMachines = $inHoursMachines + $($machinesScaled.MachineName.count)
+        #    WriteLog -Message "There have been $($machinesScaled.MachineName.count) machines scaled on, these will be added to the in hours machine count." -Level Info
+        #} else {
+        #    WriteLog -Message "There are $($machinesScaled.MachineName.count) scaled on machines, these will be shutdown as soon as they are empty of users in business hours." -Level Info
+        #}
 
 } catch {
     WriteLog -Message "There was an error gathering information from the Citrix Controller - Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm." -Level Error
