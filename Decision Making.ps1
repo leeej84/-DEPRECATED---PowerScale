@@ -1847,6 +1847,7 @@ UpdateDashboardNavigation
 WriteLog -Message "#######PowerScale script finishing#######" -Level Info -NoClobber
 WriteLog -Message "-" -Level Info -NoClobber
 
-
-
-
+#Write out all errors is any were detected captured.
+If ($ERROR) {
+    Out-File "$PSScriptRoot\Error_Log.log" -Force
+}
