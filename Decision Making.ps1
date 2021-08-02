@@ -1718,7 +1718,6 @@ if ($performanceScaling) {
             $overallPerformance = performanceAnalysis -machines $($performanceMonitoringMachines.DNSName) -exportLocation $performanceIndividual -overallExportLocation $performanceOverall
         }
     } catch {
-        $Error
         WriteLog -Message "There was an error gathering performance metrics from the VDA machines, Please ensure you have the Powershell SDK installed and the user account you are using has rights to query the Citrix farm and CMI. " -Level Error
         WriteLog -Message "There were $($performanceMonitoringMachines.RegistrationState.Count) machines On and in maintnance mode" -Level Error
         #Log out the latest error - does not mean performance measurement was unsuccessful on all machines        
@@ -1849,5 +1848,5 @@ WriteLog -Message "-" -Level Info -NoClobber
 
 #Write out all errors is any were detected captured.
 If ($ERROR) {
-    Out-File "$PSScriptRoot\Error_Log.log" -Force
+  $ERROR | Out-File "$PSScriptRoot\Error_Log.log" -Force
 }
