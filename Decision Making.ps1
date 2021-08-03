@@ -192,10 +192,12 @@ Function GenerateDashboard() {
         #Create JSON Object Array
         $jsonData = [System.Collections.ArrayList]::new()
 
-        #Create the subfolder
-        if (!(test-path $jsonPath)) {
+        #Create the subfolders
+        if (!(test-path $dashPath)) {
             New-Item -ItemType Directory -Path $scriptPath -Name Dashboard
-            New-Item -ItemType Directory -Path "$scriptPath\Dashboard" -Name JSON
+        }
+        if (!(test-path "$dashPath\JSON")) {
+            New-Item -ItemType Directory -Path $dashPath -Name JSON
         }
 
         #Create the JSON file
