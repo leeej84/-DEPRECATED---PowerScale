@@ -1935,10 +1935,16 @@ WriteLog -Message "#######PowerScale script finishing#######" -Level Info -NoClo
 WriteLog -Message "-" -Level Info -NoClobber
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #Write out all errors is any were detected captured.
 If ($ERROR) {
   $ERROR | Out-File "$PSScriptRoot\Error_Log.log" -Force
 }
+=======
+
+
+
+>>>>>>> parent of 2f940dd... Added output of any powershell errors.
 =======
 
 
