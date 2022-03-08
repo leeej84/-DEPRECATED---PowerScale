@@ -1168,9 +1168,7 @@ Function forceLogoffShutdown () {
     )
 
     WriteLog -Message "User logoff mode is set to force, logging all users off of machines that are required to be shutdown" -Level Info
-<<<<<<< HEAD
     $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
-=======
     #Check to see if we have machines with maintenance mode on first, if we do; we'll work with those first to leave live users alone
     If ($($machinesOnAndMaintenance.MachineName.Count) -gt 0) {
         WriteLog -Message "There are $($machinesOnAndMaintenance.MachineName.Count) machines on and in maintenance mode, we'll work with these first out of hours to leave live user machines alone." -Level Info
@@ -1179,7 +1177,6 @@ Function forceLogoffShutdown () {
         WriteLog -Message "There are $($machinesOnAndNotMaintenance.MachineName.Count) machines on and available, users will be logged off of these servers." -Level Info
         $machinesToPowerOff = $machinesOnAndNotMaintenance | Sort-Object -Property SessionCount | Select-Object -First $($numberMachines)
     }
->>>>>>> parent of 4f87d09... scaledMachine function added
     #For everymachine powered on up to the correct number, switch the poweroff
     foreach ($machine in $machinesToPowerOff) {
         #Check if machine is already in maintenance, otherwise set in maintenance mode
@@ -1711,14 +1708,7 @@ try {
         $machinesOnAndNotMaintenance = $allMachines | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and ($_.InMaintenanceMode -eq $false)}
         $machinesPoweredOff = $allMachines | Select-Object * | Where-Object {($_.PowerState -eq "Off")}
         $machinesScaled = $allMachines | Select-Object * | Where-Object {$_.Tags -contains "Scaled-On"}
-<<<<<<< HEAD
-        $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On") -and (-not $_.InMaintenanceMode)}
 
-        #Modify in hourse machines to take into account scaled machines or these will be shutdown prematurely
-        if  ($machinesScaled.count -gt 0) {
-            $inHoursMachines = $inHoursMachines +  ($machinesScaled.count)
-            WriteLog -Message "There have been $($machinesScaled.count) machines scaled on, these will be added to the in hours machine count." -Level Info
-=======
         $performanceMonitoringMachines =  $allMachines | Select-Object * | Where-Object {($_.RegistrationState -eq "Registered") -and ($_.PowerState -eq "On")}
 
         If ($debugLog) {            
@@ -1806,12 +1796,11 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
     If ($(TimeCheck($timeObj)) -eq "OutOfHours") {
         #Outside working hours, perform analysis on powered on machines vs target machines
         WriteLog -Message "It is currently outside working hours - performing machine analysis" -Level Info
-<<<<<<< HEAD
+
         If ((($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count) -gt $outOfHoursMachines) -and ($machinesOnAndNotMaintenance.DNSName.count -eq $outOfHoursMachines)) {
             $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.DNSName.count + $machinesOnAndMaintenance.DNSName.count)
         } else {
             $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
-=======
 
         #Remove all scaling tags now we are outside of working hours and remove machines from maintenance to make sure we maintain availability
         foreach ($machine in $machinesScaled) {
@@ -1828,7 +1817,6 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $($machinesOnAndNotMaintenance.MachineName.count + $machinesOnAndMaintenance.MachineName.count) -debugLog $debugLog
         } else {
             $action = levelCheck -targetMachines $outOfHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count -debugLog $debugLog
->>>>>>> parent of 4f87d09... scaledMachine function added
         }
         WriteLog -Message "Performance scaling is set to $performanceScaling and scaling outside of business hours is set to $scaleOutsideOfHours" -Level Info
         If (($action.Task -eq "Scaling") -and ($performanceScaling) -and ($scaleOutsideOfHours)) {
@@ -1854,7 +1842,6 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
             Startup -numberMachines $action.Number
         }
         if ($($action.Number) -eq 0) {
-<<<<<<< HEAD
         #Remove the scaling tag if one exists
             foreach ($machine in $machinesScaled) {
                 if ((Get-BrokerTag -MachineUid $(Get-BrokerMachine -MachineName $($machine).MachineName).uid).Name -contains "Scaled-On") {
@@ -1866,13 +1853,11 @@ If ((($(IsBusinessDay -date $($timesObj.timeNow))) -and (!($(IsHolidayDay -holid
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
         $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.RegistrationState.Count
-=======
             WriteLog -Message "We're out ooutside of working hours with the correct number of machines - nothing to do." -Level Info
         }
     } ElseIf ($(TimeCheck($timeObj)) -eq "InsideOfHours") {
         #Inside working hours, decide on what to do with current machines, let level check know that scaling should be considered
         $action = levelCheck -targetMachines $InHoursMachines -currentMachines $machinesOnAndNotMaintenance.MachineName.Count -debugLog $debugLog
->>>>>>> parent of 4f87d09... scaledMachine function added
         WriteLog -Message "It is currently inside working hours - performing machine analysis" -Level Info
         If ($action.Task -eq "Scaling" -and $performanceScaling) {
             #Perform scaling calculations
@@ -1934,19 +1919,8 @@ UpdateDashboardNavigation
 WriteLog -Message "#######PowerScale script finishing#######" -Level Info -NoClobber
 WriteLog -Message "-" -Level Info -NoClobber
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 #Write out all errors is any were detected captured.
 If ($ERROR) {
   $ERROR | Out-File "$PSScriptRoot\Error_Log.log" -Force
 }
-=======
 
-
-
->>>>>>> parent of 2f940dd... Added output of any powershell errors.
-=======
-
-
-
->>>>>>> parent of 2f940dd... Added output of any powershell errors.
