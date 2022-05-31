@@ -1,4 +1,5 @@
 # PowerScale
+*No Longer in Development*
 <div><img src="https://www.leeejeffries.com/wp-content/uploads/2019/05/logo_small.jpg" alt="PowerScale icon" width="250px" height="200px" style="margin-right: 10px;" />
 
 <img src="https://www.leeejeffries.com/wp-content/uploads/2019/08/RDTabs_IMURKMZWwa-1024x486.png" alt="PowerScale Dashboard" style="margin-right: 10px;" /></div>
